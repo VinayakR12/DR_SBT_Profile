@@ -1,96 +1,200 @@
-'use client'
+"use client";
 
-// app/certificates/page.tsx
-// Certificates — fully responsive 2-col compact list + modal viewer
+// app/achievements/certificates/page.tsx
+// Certificates — responsive compact list + modal viewer, backed by Supabase content.
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  Award, X, Download, ExternalLink,
-  FileText, Filter, ChevronLeft, ChevronRight,
-  ImageIcon, Search, SlidersHorizontal,
-} from 'lucide-react'
-import { CERTIFICATES, CAT_COLOR, type Certificate } from './data'
+  Award,
+  ChevronLeft,
+  ChevronRight,
+  CloudOff,
+  Download,
+  ExternalLink,
+  Database,
+  FileText,
+  Filter,
+  ImageIcon,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 
-/* ─── animation helper ─────────────────────────── */
+import {
+  normalizeCertificatesContent,
+  STATIC_CERTIFICATES_CONTENT,
+  type CertificateItemRaw,
+  type CertificatesContentRaw,
+} from "@/lib/certificatesContent";
+import { CAT_COLOR } from "@/app/Database/Certificatedata";
+
+type ApiState = {
+  ok?: boolean;
+  source?: "supabase" | "backup";
+  content?: Partial<CertificatesContentRaw>;
+  message?: string;
+};
+
 const fadeUp = (i = 0) => ({
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.38, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] as any },
-})
+  transition: {
+    duration: 0.38,
+    delay: i * 0.04,
+    ease: [0.22, 1, 0.36, 1] as any,
+  },
+});
 
-const ALL_CATS = ['All', ...Array.from(new Set(CERTIFICATES.map(c => c.category)))]
-
-/* ─── component ────────────────────────────────── */
 export default function CertificatesPage() {
-  const [filter, setFilter]         = useState('All')
-  const [query, setQuery]           = useState('')
-  const [selected, setSelected]     = useState<Certificate | null>(null)
-  const [imgLoaded, setImgLoaded]   = useState(false)
-  const [filterOpen, setFilterOpen] = useState(false)
-  const [isMobile, setIsMobile]     = useState(false)
+  const [content, setContent] = useState(() => normalizeCertificatesContent(STATIC_CERTIFICATES_CONTENT));
+  const [contentSource, setContentSource] = useState<'loading' | 'supabase' | 'backup'>('loading')
+  const [contentNotice, setContentNotice] = useState<string | null>(null)
+  const [filter, setFilter] = useState("All");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<CertificateItemRaw | null>(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639px)')
-    setIsMobile(mq.matches)
-    const h = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-    mq.addEventListener('change', h)
-    return () => mq.removeEventListener('change', h)
-  }, [])
+    let active = true;
 
-  const sorted   = [...CERTIFICATES].sort((a, b) => b.year - a.year)
-  const filtered = sorted.filter(c => {
-    const matchCat = filter === 'All' || c.category === filter
-    const q        = query.toLowerCase()
-    const matchQ   = !q || c.title.toLowerCase().includes(q) || c.issuer.toLowerCase().includes(q)
-    return matchCat && matchQ
-  })
+    const loadContent = async () => {
+      try {
+        const response = await fetch("/api/achievements-certificates-content", { cache: "no-store" });
+        const payload = (await response.json()) as ApiState;
 
-  const idx   = selected ? filtered.findIndex(c => c.id === selected.id) : -1
-  const open  = (c: Certificate) => { setImgLoaded(false); setSelected(c) }
-  const close = useCallback(() => setSelected(null), [])
-  const prev  = useCallback(() => {
-    if (idx > 0) { setImgLoaded(false); setSelected(filtered[idx - 1]) }
-  }, [idx, filtered])
-  const next  = useCallback(() => {
-    if (idx < filtered.length - 1) { setImgLoaded(false); setSelected(filtered[idx + 1]) }
-  }, [idx, filtered])
+        if (!active) {
+          return;
+        }
+
+        setContent(normalizeCertificatesContent(payload.content || STATIC_CERTIFICATES_CONTENT));
+        setContentSource(payload.source || 'backup');
+
+        if (payload.source !== 'supabase') {
+          setContentNotice(payload.message || 'Supabase is unavailable. Rendering the backup content file instead.');
+          if (payload.message) {
+            console.error('[certificates-page] Falling back to static backup:', payload.message);
+          }
+        } else {
+          setContentNotice(null);
+        }
+      } catch {
+        if (!active) {
+          return;
+        }
+
+        setContent(normalizeCertificatesContent(STATIC_CERTIFICATES_CONTENT));
+        setContentSource('backup');
+        setContentNotice('Supabase is unavailable. Rendering the backup content file instead.');
+      }
+    };
+
+    loadContent();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
-    if (!selected) return
-    const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape')     close()
-      if (e.key === 'ArrowLeft')  prev()
-      if (e.key === 'ArrowRight') next()
+    const mq = window.matchMedia("(max-width: 639px)");
+    setIsMobile(mq.matches);
+    const h = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", h);
+    return () => mq.removeEventListener("change", h);
+  }, []);
+
+  const certificates = useMemo(() => [...content.certificates].sort((a, b) => b.year - a.year), [content]);
+  const allCats = useMemo(() => ["All", ...Array.from(new Set(certificates.map((cert) => cert.category)))], [certificates]);
+
+  const filtered = useMemo(() => {
+    return certificates.filter((cert) => {
+      const matchCat = filter === "All" || cert.category === filter;
+      const q = query.toLowerCase();
+      const matchQ =
+        !q ||
+        cert.title.toLowerCase().includes(q) ||
+        cert.issuer.toLowerCase().includes(q) ||
+        cert.description?.toLowerCase().includes(q) ||
+        cert.link?.toLowerCase().includes(q);
+      return matchCat && matchQ;
+    });
+  }, [certificates, filter, query]);
+
+  const idx = selected ? filtered.findIndex((cert) => cert.id === selected.id) : -1;
+  const open = (cert: CertificateItemRaw) => {
+    setImgLoaded(false);
+    setSelected(cert);
+  };
+  const close = useCallback(() => setSelected(null), []);
+  const prev = useCallback(() => {
+    if (idx > 0) {
+      setImgLoaded(false);
+      setSelected(filtered[idx - 1]);
     }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [selected, prev, next, close])
+  }, [idx, filtered]);
+  const next = useCallback(() => {
+    if (idx < filtered.length - 1) {
+      setImgLoaded(false);
+      setSelected(filtered[idx + 1]);
+    }
+  }, [idx, filtered]);
 
   useEffect(() => {
-    document.body.style.overflow = (selected || filterOpen) ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
-  }, [selected, filterOpen])
+    if (!selected) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [selected, prev, next, close]);
 
- const cc = (cat: string) =>
-  CAT_COLOR[cat as keyof typeof CAT_COLOR] ?? {
-    bg: '#F1F5F9',
-    border: '#CBD5E1',
-    text: '#475569',
-  }
-  const categoryCounts = ALL_CATS.reduce((acc, cat) => {
-    acc[cat] = cat === 'All'
-      ? CERTIFICATES.length
-      : CERTIFICATES.filter(c => c.category === cat).length
-    return acc
-  }, {} as Record<string, number>)
+  useEffect(() => {
+    document.body.style.overflow = selected || filterOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [selected, filterOpen]);
+
+  const cc = (cat: string) =>
+    CAT_COLOR[cat as keyof typeof CAT_COLOR] ?? {
+      bg: "#F1F5F9",
+      border: "#CBD5E1",
+      text: "#475569",
+    };
+
+  const categoryCounts = useMemo(
+    () =>
+      allCats.reduce(
+        (acc, cat) => {
+          acc[cat] = cat === "All" ? certificates.length : certificates.filter((cert) => cert.category === cat).length;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+    [allCats, certificates],
+  );
+
+  const heroStats = useMemo(() => {
+    const uniqueCategories = new Set(certificates.map((cert) => cert.category)).size;
+    const since2020 = certificates.filter((cert) => cert.year >= 2020).length;
+
+    return [
+      { n: certificates.length, l: "Certificates" },
+      { n: uniqueCategories, l: "Categories" },
+      { n: since2020, l: "Since 2020" },
+    ];
+  }, [certificates]);
 
   return (
     <>
-      {/* ══ HERO ══════════════════════════════════════════════ */}
       <section className="hero">
         <div className="hero-grid" aria-hidden />
-        <div className="hero-glow"  aria-hidden />
+        <div className="hero-glow" aria-hidden />
         <div className="W hero-body">
           <motion.div
             initial={{ opacity: 0, y: 28 }}
@@ -100,26 +204,30 @@ export default function CertificatesPage() {
           >
             <span className="eyebrow">
               <Award size={12} />
-              Certificates &amp; Recognitions
+              {content.hero.eyebrow}
             </span>
             <h1>
-              Academic Credentials<br />
+              {content.hero.title}
+              <br />
               <em>&amp; Achievements</em>
             </h1>
-            <p className="hero-sub">
-              A verified record of academic qualifications, professional
-              recognitions, and institutional certifications spanning 18+
-              years of dedicated academic service.
-            </p>
+            <p className="hero-sub">{content.hero.subtitle}</p>
+            {contentSource !== 'loading' && (
+              <div className={`content-status content-status-${contentSource}`} role="status" aria-live="polite">
+                {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
+                <span>{contentSource === 'supabase' ? 'Live from Supabase' : 'Fallback from Certificatedata.ts'}</span>
+              </div>
+            )}
+            {contentNotice && contentSource === 'backup' && (
+              <p className="content-notice" role="status" aria-live="polite">
+                {contentNotice}
+              </p>
+            )}
             <div className="hero-stats">
-              {[
-                { n: CERTIFICATES.length,   l: 'Certificates' },
-                { n: ALL_CATS.length - 1,   l: 'Categories'   },
-                { n: CERTIFICATES.filter(c => c.year >= 2020).length, l: 'Since 2020' },
-              ].map((s, i) => (
-                <div key={i} className="stat">
-                  <strong>{s.n}</strong>
-                  <span>{s.l}</span>
+              {heroStats.map((stat, index) => (
+                <div key={index} className="stat">
+                  <strong>{stat.n}</strong>
+                  <span>{stat.l}</span>
                 </div>
               ))}
             </div>
@@ -127,20 +235,13 @@ export default function CertificatesPage() {
         </div>
       </section>
 
-      {/* ══ TOOLBAR ═══════════════════════════════════════════ */}
       <div className="toolbar">
         <div className="W toolbar-body">
-
-          {/* Desktop (≥640px) */}
           <div className="tb-desktop">
             <Filter size={11} className="filter-icon" aria-hidden />
             <div className="cats-scroll">
-              {ALL_CATS.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setFilter(cat)}
-                  className={`cat-pill${filter === cat ? ' active' : ''}`}
-                >
+              {allCats.map((cat) => (
+                <button key={cat} onClick={() => setFilter(cat)} className={`cat-pill${filter === cat ? " active" : ""}`}>
                   {cat}
                   <span className="pill-count">{categoryCounts[cat]}</span>
                 </button>
@@ -150,13 +251,13 @@ export default function CertificatesPage() {
               <Search size={13} className="search-icon" aria-hidden />
               <input
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
                 className="search-input"
                 aria-label="Search certificates"
               />
               {query && (
-                <button onClick={() => setQuery('')} className="search-clear" aria-label="Clear">
+                <button onClick={() => setQuery("")} className="search-clear" aria-label="Clear">
                   <X size={11} />
                 </button>
               )}
@@ -164,50 +265,40 @@ export default function CertificatesPage() {
             <span className="count-badge">{filtered.length}</span>
           </div>
 
-          {/* Mobile (<640px) */}
           <div className="tb-mobile">
             <div className="search-wrap search-full">
               <Search size={13} className="search-icon" aria-hidden />
               <input
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search certificates…"
                 className="search-input"
                 aria-label="Search certificates"
               />
               {query && (
-                <button onClick={() => setQuery('')} className="search-clear" aria-label="Clear">
+                <button onClick={() => setQuery("")} className="search-clear" aria-label="Clear">
                   <X size={11} />
                 </button>
               )}
             </div>
             <button
-              className={`filter-toggle-btn${filterOpen || filter !== 'All' ? ' active' : ''}`}
-              onClick={() => setFilterOpen(v => !v)}
+              className={`filter-toggle-btn${filterOpen || filter !== "All" ? " active" : ""}`}
+              onClick={() => setFilterOpen((v) => !v)}
               aria-label="Filter"
             >
               <SlidersHorizontal size={15} />
-              {filter !== 'All' && <span className="filter-dot" />}
+              {filter !== "All" && <span className="filter-dot" />}
             </button>
             <span className="count-badge">{filtered.length}</span>
           </div>
         </div>
       </div>
 
-      {/* ── Mobile filter bottom-sheet ── */}
       <AnimatePresence>
         {filterOpen && (
           <>
-            <motion.div
-              className="drawer-overlay"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setFilterOpen(false)}
-            />
-            <motion.div
-              className="drawer"
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            >
+            <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setFilterOpen(false)} />
+            <motion.div className="drawer" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }}>
               <div className="drawer-handle" />
               <div className="drawer-header">
                 <p className="drawer-title">Filter by Category</p>
@@ -216,11 +307,14 @@ export default function CertificatesPage() {
                 </button>
               </div>
               <div className="drawer-list">
-                {ALL_CATS.map(cat => (
+                {allCats.map((cat) => (
                   <button
                     key={cat}
-                    onClick={() => { setFilter(cat); setFilterOpen(false) }}
-                    className={`drawer-row${filter === cat ? ' active' : ''}`}
+                    onClick={() => {
+                      setFilter(cat);
+                      setFilterOpen(false);
+                    }}
+                    className={`drawer-row${filter === cat ? " active" : ""}`}
                   >
                     <span>{cat}</span>
                     <span className="drawer-count">{categoryCounts[cat]}</span>
@@ -232,15 +326,10 @@ export default function CertificatesPage() {
         )}
       </AnimatePresence>
 
-      {/* ══ CERTIFICATE LIST ══════════════════════════════════ */}
       <section className="list-section">
         <div className="W">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={filter + query}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
+            <motion.div key={filter + query} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
               {filtered.length === 0 ? (
                 <div className="empty">
                   <Award size={40} className="empty-icon" />
@@ -248,7 +337,10 @@ export default function CertificatesPage() {
                   <p className="empty-sub">Try adjusting your search or filter.</p>
                   <button
                     className="empty-reset"
-                    onClick={() => { setFilter('All'); setQuery('') }}
+                    onClick={() => {
+                      setFilter("All");
+                      setQuery("");
+                    }}
                   >
                     Reset filters
                   </button>
@@ -256,19 +348,12 @@ export default function CertificatesPage() {
               ) : (
                 <div className="cert-grid">
                   {filtered.map((cert, i) => {
-                    const c = cc(cert.category)
+                    const c = cc(cert.category);
                     return (
                       <motion.div key={cert.id} {...fadeUp(i % 10)}>
-                        <button
-                          className="cert-row"
-                          onClick={() => open(cert)}
-                          aria-label={`Open: ${cert.title}`}
-                        >
+                        <button className="cert-row" onClick={() => open(cert)} aria-label={`Open: ${cert.title}`}>
                           <div className="row-icon" aria-hidden>
-                            {cert.type === 'pdf'
-                              ? <FileText size={16} className="icon-pdf" />
-                              : <ImageIcon size={16} className="icon-img" />
-                            }
+                            {cert.type === "pdf" ? <FileText size={16} className="icon-pdf" /> : <ImageIcon size={16} className="icon-img" />}
                           </div>
                           <div className="row-body">
                             <div className="row-top">
@@ -278,17 +363,23 @@ export default function CertificatesPage() {
                             <div className="row-meta">
                               <span
                                 className="cat-badge"
-                                style={{ background: c.bg, border: `1px solid ${c.border}`, color: c.text }}
+                                style={{
+                                  background: c.bg,
+                                  border: `1px solid ${c.border}`,
+                                  color: c.text,
+                                }}
                               >
                                 {cert.category}
                               </span>
-                              <span className="row-issuer" title={cert.issuer}>{cert.issuer}</span>
+                              <span className="row-issuer" title={cert.issuer}>
+                                {cert.issuer}
+                              </span>
                             </div>
                           </div>
                           <ChevronRight size={14} className="row-arrow" aria-hidden />
                         </button>
                       </motion.div>
-                    )
+                    );
                   })}
                 </div>
               )}
@@ -297,15 +388,18 @@ export default function CertificatesPage() {
         </div>
       </section>
 
-      {/* ══ MODAL ═════════════════════════════════════════════ */}
       <AnimatePresence>
         {selected && (
           <motion.div
             className="modal-backdrop"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={close}
-            role="dialog" aria-modal="true" aria-label={selected.title}
+            role="dialog"
+            aria-modal="true"
+            aria-label={selected.title}
           >
             <motion.div
               className="modal"
@@ -313,9 +407,8 @@ export default function CertificatesPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97, y: isMobile ? 80 : 16 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
             >
-              {/* header */}
               <div className="modal-head">
                 <div className="modal-head-info">
                   <span
@@ -332,24 +425,46 @@ export default function CertificatesPage() {
                 </div>
                 <div className="modal-head-actions">
                   <a
-                    href={selected.file} download target="_blank" rel="noreferrer"
-                    className="mab" title="Download"
-                    onClick={e => e.stopPropagation()}
-                  ><Download size={13} /></a>
+                    href={selected.file}
+                    download
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mab"
+                    title="Download"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Download size={13} />
+                  </a>
                   <a
-                    href={selected.file} target="_blank" rel="noreferrer"
-                    className="mab" title="Open in new tab"
-                    onClick={e => e.stopPropagation()}
-                  ><ExternalLink size={12} /></a>
+                    href={selected.file}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mab"
+                    title="Open file"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <FileText size={12} />
+                  </a>
+                  {selected.link && (
+                    <a
+                      href={selected.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mab"
+                      title="Open external link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                   <button className="mab mab-close" onClick={close} title="Close (Esc)">
                     <X size={14} />
                   </button>
                 </div>
               </div>
 
-              {/* viewer */}
               <div className="modal-viewer">
-                {selected.type === 'image' ? (
+                {selected.type === "image" ? (
                   <>
                     {!imgLoaded && (
                       <div className="viewer-loader">
@@ -366,15 +481,10 @@ export default function CertificatesPage() {
                     />
                   </>
                 ) : (
-                  <iframe
-                    src={`${selected.file}#toolbar=1&view=FitH`}
-                    className="viewer-pdf"
-                    title={selected.title}
-                  />
+                  <iframe src={`${selected.file}#toolbar=1&view=FitH`} className="viewer-pdf" title={selected.title} />
                 )}
               </div>
 
-              {/* info */}
               <div className="modal-info">
                 <div className="info-grid">
                   <div className="info-cell">
@@ -385,26 +495,44 @@ export default function CertificatesPage() {
                     <span className="info-lbl">Date</span>
                     <span className="info-val">{selected.date}</span>
                   </div>
-                  {selected?.credentialId && <div className="info-cell"><span className="info-lbl">Credential ID</span><span className="info-val mono">{selected.credentialId}</span></div>}
+                  {selected.credentialId && (
+                    <div className="info-cell">
+                      <span className="info-lbl">Credential ID</span>
+                      <span className="info-val mono">{selected.credentialId}</span>
+                    </div>
+                  )}
+                  {selected.link && (
+                    <div className="info-cell">
+                      <span className="info-lbl">Link</span>
+                      <a className="info-link" href={selected.link} target="_blank" rel="noreferrer">
+                        Open external record
+                      </a>
+                    </div>
+                  )}
                 </div>
-                {selected.description && (
-                  <p className="info-desc">{selected.description}</p>
-                )}
+                {selected.description && <p className="info-desc">{selected.description}</p>}
                 {selected.tags && selected.tags.length > 0 && (
                   <div className="info-tags">
-                    {selected.tags.map(t => <span key={t} className="tag">{t}</span>)}
+                    {selected.tags.map((tag) => (
+                      <span key={tag} className="tag">
+                        {tag}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* prev/next */}
               <div className="modal-nav">
                 <button className="nav-btn" onClick={prev} disabled={idx <= 0} aria-label="Previous">
-                  <ChevronLeft size={15} /><span className="nav-lbl">Prev</span>
+                  <ChevronLeft size={15} />
+                  <span className="nav-lbl">Prev</span>
                 </button>
-                <span className="nav-count">{idx + 1} / {filtered.length}</span>
+                <span className="nav-count">
+                  {idx + 1} / {filtered.length}
+                </span>
                 <button className="nav-btn" onClick={next} disabled={idx >= filtered.length - 1} aria-label="Next">
-                  <span className="nav-lbl">Next</span><ChevronRight size={15} />
+                  <span className="nav-lbl">Next</span>
+                  <ChevronRight size={15} />
                 </button>
               </div>
             </motion.div>
@@ -412,9 +540,7 @@ export default function CertificatesPage() {
         )}
       </AnimatePresence>
 
-      {/* ══ STYLES ════════════════════════════════════════════ */}
       <style>{`
-        /* ── tokens ── */
         :root {
           --navy:   #0D1F3C;
           --gold:   #B8870A;
@@ -440,7 +566,6 @@ export default function CertificatesPage() {
           padding-right: clamp(14px, 4vw, 60px);
         }
 
-        /* ── HERO ── */
         .hero { padding-top: var(--nav-h); background: var(--navy); position: relative; overflow: hidden; }
         .hero-grid {
           position: absolute; inset: 0; pointer-events: none;
@@ -479,6 +604,18 @@ export default function CertificatesPage() {
           color: rgba(226,232,240,0.6); line-height: 1.78; font-weight: 300;
           max-width: 500px; margin: 0 auto 28px;
         }
+        .content-status {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 5px 10px; border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.14);
+          font-size: 11px; font-weight: 700; margin: 0 auto 16px;
+        }
+        .content-status-supabase { background: rgba(26,107,72,0.18); color: #8EE0B5; }
+        .content-status-backup { background: rgba(184,135,10,0.2); color: #F7D080; }
+        .content-notice {
+          max-width: 760px; margin: 0 auto 18px;
+          color: rgba(226,232,240,0.66); font-size: 12.5px; line-height: 1.65;
+        }
         .hero-stats {
           display: flex; justify-content: center;
           border: 1px solid rgba(255,255,255,0.09); border-radius: 12px;
@@ -493,22 +630,14 @@ export default function CertificatesPage() {
         }
         .stat span { font-size: clamp(8.5px, 1vw, 10.5px); color: rgba(226,232,240,0.38); letter-spacing: 0.08em; text-transform: uppercase; display: block; }
 
-        /* ── TOOLBAR ── */
         .toolbar {
           background: var(--white); border-bottom: 1px solid var(--line);
           position: sticky; top: var(--nav-h); z-index: 200;
           box-shadow: 0 2px 10px rgba(13,31,60,0.05);
         }
         .toolbar-body { padding-top: 9px; padding-bottom: 9px; }
-
-        /* desktop */
-        .tb-desktop {
-          display: none; align-items: center; gap: 10px;
-        }
-        /* mobile */
-        .tb-mobile {
-          display: flex; align-items: center; gap: 8px;
-        }
+        .tb-desktop { display: none; align-items: center; gap: 10px; }
+        .tb-mobile { display: flex; align-items: center; gap: 8px; }
         @media (min-width: 640px) {
           .tb-desktop { display: flex; }
           .tb-mobile  { display: none; }
@@ -537,7 +666,6 @@ export default function CertificatesPage() {
         }
         .cat-pill.active .pill-count { background: rgba(255,255,255,0.2); color: #fff; }
 
-        /* search */
         .search-wrap { position: relative; display: flex; align-items: center; }
         .search-full { flex: 1; }
         .search-icon { position: absolute; left: 10px; color: var(--ink4); pointer-events: none; }
@@ -561,7 +689,6 @@ export default function CertificatesPage() {
           padding: 3px 9px; border-radius: 100px;
         }
 
-        /* filter toggle */
         .filter-toggle-btn {
           position: relative; width: 38px; height: 38px; border-radius: 9px;
           border: 1.5px solid var(--line); background: var(--off); color: var(--ink3);
@@ -574,7 +701,6 @@ export default function CertificatesPage() {
           border-radius: 50%; background: var(--gold3); border: 1.5px solid var(--white);
         }
 
-        /* drawer */
         .drawer-overlay {
           position: fixed; inset: 0; z-index: 290;
           background: rgba(5,10,22,0.5); backdrop-filter: blur(4px);
@@ -604,7 +730,7 @@ export default function CertificatesPage() {
           border: 1.5px solid transparent; background: transparent;
           cursor: pointer; text-align: left; font-size: 15px; font-weight: 500;
           color: var(--ink3); font-family: inherit; transition: all 0.13s;
-          min-height: 48px; /* good tap target */
+          min-height: 48px;
         }
         .drawer-row:hover { background: var(--off); }
         .drawer-row.active { background: rgba(13,31,60,0.06); border-color: rgba(13,31,60,0.14); color: var(--navy); font-weight: 700; }
@@ -614,7 +740,6 @@ export default function CertificatesPage() {
         }
         .drawer-row.active .drawer-count { background: var(--navy); color: #fff; }
 
-        /* ── LIST ── */
         .list-section {
           background: var(--off);
           padding: clamp(20px, 4vh, 44px) 0 clamp(40px, 7vh, 72px);
@@ -629,7 +754,6 @@ export default function CertificatesPage() {
           .cert-grid { grid-template-columns: 1fr; gap: 7px; }
         }
 
-        /* row */
         .cert-row {
           display: flex; align-items: center; gap: 12px;
           width: 100%; padding: 12px 13px;
@@ -637,7 +761,7 @@ export default function CertificatesPage() {
           border-radius: var(--r); cursor: pointer; text-align: left;
           transition: box-shadow 0.18s, border-color 0.18s, transform 0.18s;
           box-shadow: var(--sh1); font-family: inherit;
-          min-height: 62px; /* comfortable tap area */
+          min-height: 62px;
         }
         .cert-row:hover { box-shadow: var(--sh2); border-color: rgba(13,31,60,0.22); transform: translateY(-1px); }
         .cert-row:active { transform: scale(0.993); box-shadow: var(--sh1); }
@@ -657,7 +781,6 @@ export default function CertificatesPage() {
           font-family: 'Playfair Display', Georgia, serif;
           font-size: clamp(11.5px, 1.1vw, 14px);
           font-weight: 600; color: var(--navy); line-height: 1.32;
-          /* 2-line clamp on mobile, 1-line on desktop */
           display: -webkit-box; -webkit-box-orient: vertical;
           overflow: hidden; -webkit-line-clamp: 2; flex: 1; min-width: 0;
         }
@@ -678,7 +801,6 @@ export default function CertificatesPage() {
         }
         .row-arrow { flex-shrink: 0; color: var(--ink4); opacity: 0.45; transition: color 0.16s, opacity 0.16s; }
 
-        /* empty */
         .empty { text-align: center; padding: 72px 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .empty-icon { color: var(--line); }
         .empty-title { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--ink); }
@@ -690,7 +812,6 @@ export default function CertificatesPage() {
         }
         .empty-reset:hover { background: var(--navy); color: #fff; }
 
-        /* ── MODAL ── */
         .modal-backdrop {
           position: fixed; inset: 0; z-index: 9000;
           background: rgba(5,10,22,0.88);
@@ -711,7 +832,6 @@ export default function CertificatesPage() {
           .modal { border-radius: 18px 18px 0 0; max-height: 96vh; }
         }
 
-        /* modal header */
         .modal-head {
           display: flex; align-items: flex-start; gap: 10px;
           padding: 13px 15px; background: var(--navy);
@@ -724,7 +844,7 @@ export default function CertificatesPage() {
           font-weight: 600; color: #F0F4F8; line-height: 1.3;
           display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
         }
-        .modal-head-actions { display: flex; gap: 6px; flex-shrink: 0; padding-top: 2px; }
+        .modal-head-actions { display: flex; gap: 6px; flex-shrink: 0; padding-top: 2px; flex-wrap: wrap; }
         .mab {
           width: 32px; height: 32px; border-radius: 7px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -735,7 +855,6 @@ export default function CertificatesPage() {
         .mab:hover { background: rgba(255,255,255,0.16); color: #fff; }
         .mab-close:hover { background: rgba(200,50,50,0.22); border-color: rgba(220,70,70,0.4); color: #fff; }
 
-        /* viewer */
         .modal-viewer {
           flex: 0 0 auto;
           height: clamp(220px, 44vh, 480px);
@@ -763,18 +882,24 @@ export default function CertificatesPage() {
         }
         .viewer-pdf { width: 100%; height: 100%; border: none; display: block; }
 
-        /* info strip */
         .modal-info {
           padding: 12px 15px; background: var(--off);
           border-top: 1px solid var(--line); flex-shrink: 0;
-          overflow-y: auto; max-height: 140px;
+          overflow-y: auto; max-height: 150px;
         }
-        @media (max-width: 639px) { .modal-info { max-height: 120px; } }
+        @media (max-width: 639px) { .modal-info { max-height: 130px; } }
         .info-grid { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 8px; }
         .info-cell { display: flex; flex-direction: column; gap: 1px; }
         .info-lbl { font-size: 9px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: var(--ink4); }
         .info-val { font-size: clamp(11.5px, 1.2vw, 13px); font-weight: 600; color: var(--navy); }
         .info-val.mono { font-family: 'DM Mono', ui-monospace, monospace; font-size: 11.5px; }
+        .info-link {
+          font-size: 11.5px;
+          color: var(--gold);
+          font-weight: 700;
+          text-decoration: none;
+        }
+        .info-link:hover { text-decoration: underline; }
         .info-desc { font-size: 12.5px; color: var(--ink3); line-height: 1.65; }
         .info-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
         .tag {
@@ -782,7 +907,6 @@ export default function CertificatesPage() {
           background: rgba(13,31,60,0.06); border: 1px solid rgba(13,31,60,0.12); color: var(--ink3);
         }
 
-        /* nav */
         .modal-nav {
           display: flex; align-items: center; justify-content: space-between;
           padding: 10px 15px; background: var(--white);
@@ -795,7 +919,7 @@ export default function CertificatesPage() {
           border: 1.5px solid var(--line); background: var(--off); color: var(--navy);
           font-size: clamp(12px, 1.2vw, 13px); font-weight: 600; cursor: pointer;
           transition: all 0.14s; font-family: inherit; min-width: 72px;
-          min-height: 40px; /* tap target */
+          min-height: 40px;
         }
         .nav-btn:hover:not(:disabled) { border-color: var(--navy); background: var(--navy); color: #fff; }
         .nav-btn:disabled { opacity: 0.32; cursor: not-allowed; }
@@ -805,18 +929,16 @@ export default function CertificatesPage() {
         }
         .nav-count { font-size: 12px; color: var(--ink4); font-variant-numeric: tabular-nums; }
 
-        /* ── focus rings ── */
         .cert-row:focus-visible, .cat-pill:focus-visible,
         .nav-btn:focus-visible, .mab:focus-visible,
         .drawer-row:focus-visible, .filter-toggle-btn:focus-visible {
           outline: 2px solid var(--gold3); outline-offset: 2px;
         }
 
-        /* ── safe area ── */
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
           .drawer { padding-bottom: env(safe-area-inset-bottom, 16px); }
         }
       `}</style>
     </>
-  )
+  );
 }

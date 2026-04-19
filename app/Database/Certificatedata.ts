@@ -35,6 +35,7 @@ export type Certificate = {
   type: CertType
   tags?: string[]
   credentialId?: string
+  link?: string
 }
 
 export type Patent = {
@@ -80,33 +81,29 @@ export const CAT_COLOR: Record<CertCategory, { bg: string; border: string; text:
 }
 
 // ══════════════════════════════════════════════════════════════
-//  CERTIFICATES
+//  CERTIFICATES — SORTED by year (descending) then alphabetically
 // ══════════════════════════════════════════════════════════════
 export const CERTIFICATES: Certificate[] = [
-   {
+  {
     id: 'cert-nptel-llm',
     title: 'NPTEL — Large Language Models (LLM)',
     issuer: 'NPTEL (IIT)',
     date: '2024',
     year: 2024,
-     category: 'University Approval',
-    description:
-      'Successfully completed NPTEL course on Large Language Models (LLMs), covering fundamentals of transformer architectures, NLP, and generative AI systems.',
+    category: 'Online Course',
+    description: 'Successfully completed NPTEL course on Large Language Models (LLMs), covering fundamentals of transformer architectures, NLP, and generative AI systems.',
     file: '/certificate/LLMNPTEL.pdf',
     type: 'pdf',
     tags: ['NPTEL', 'LLM', 'AI', 'NLP', 'Deep Learning'],
   },
   {
     id: 'cert-fdp-ai',
-    title:
-      'Faculty Development Program — Unlock The Power of AI in Education and Research',
-    issuer:
-      'D Y Patil College of Engineering and Technology, Kolhapur',
+    title: 'Faculty Development Program — Unlock The Power of AI in Education and Research',
+    issuer: 'D Y Patil College of Engineering and Technology, Kolhapur',
     date: '2024',
     year: 2024,
-     category: 'University Approval',
-    description:
-      'Awarded for active participation in a two-week online Faculty Development Program focused on AI applications in education and research.',
+    category: 'Professional Development',
+    description: 'Awarded for active participation in a two-week online Faculty Development Program focused on AI applications in education and research.',
     file: '/certificate/fpd1.pdf',
     type: 'pdf',
     tags: ['FDP', 'AI', 'Education', 'Research', 'Faculty Development'],
@@ -117,38 +114,35 @@ export const CERTIFICATES: Certificate[] = [
     issuer: 'NPTEL (IIT)',
     date: '2024',
     year: 2024,
-     category: 'University Approval',
-    description:
-      'Completed NPTEL certification in Python, covering programming fundamentals, data handling, and applications in data science and AI.',
+    category: 'Online Course',
+    description: 'Completed NPTEL certification in Python, covering programming fundamentals, data handling, and applications in data science and AI.',
     file: '/certificate/pythonNPTEL.pdf',
     type: 'pdf',
     tags: ['Python', 'NPTEL', 'Programming', 'Data Science'],
   },
-
-  
   {
-    id: 'cert-mumbai-lecturer-2008',
-    title: 'University Approval — Lecturer, University of Mumbai',
-    issuer: 'University of Mumbai',
-    date: 'November 2008',
-    year: 2008,
-    category: 'University Approval',
-    description: 'Appointment approved as Lecturer in Computer Engineering Department. Letter No. CONCOL/SA/4532 dated 11 Nov 2008.',
-    file: '/certificates/approval-mumbai-2008.jpg',
+    id: 'cert-copyright-2',
+    title: 'Copyright Registration — VR Interactive Online Education',
+    issuer: 'Copyright Office, Government of India',
+    date: 'December 2024',
+    year: 2024,
+    category: 'Award & Recognition',
+    description: 'Registered copyright for computer software: "A Virtual Reality Solution for Interactive and Engaging Online Education." Diary No: 25004/2024-CO/SW.',
+    file: '/certificates/copyright-vr-education.jpg',
     type: 'image',
-    tags: ['University of Mumbai', 'Lecturer', 'Appointment Letter'],
+    tags: ['Copyright', 'VR', 'Education Software', 'IP'],
   },
   {
-    id: 'cert-shivaji-ap-2014',
-    title: 'University Approval — Assistant Professor, Shivaji University',
-    issuer: 'Shivaji University, Kolhapur',
-    date: 'February 2014',
-    year: 2014,
-    category: 'University Approval',
-    description: 'Appointment approved as Assistant Professor in CSE Dept. Letter No. Afi/T3/STS/F-105 dated 10 Feb 2014.',
-    file: '/certificates/approval-shivaji-2014.jpg',
+    id: 'cert-copyright-1',
+    title: 'Copyright Registration — Plant Species & Weed Classification (CNN)',
+    issuer: 'Copyright Office, Government of India',
+    date: 'May 2024',
+    year: 2024,
+    category: 'Award & Recognition',
+    description: 'Registered copyright for computer software: "Plant Species and Weed Classification for Precision Agriculture using CNN." Diary No: 14704/2024-CO/SW.',
+    file: '/certificates/copyright-plant-cnn.jpg',
     type: 'image',
-    tags: ['Shivaji University', 'Assistant Professor', 'Appointment Letter'],
+    tags: ['Copyright', 'CNN', 'Software IP', 'Precision Agriculture'],
   },
   {
     id: 'cert-mumbai-ap-2018',
@@ -161,18 +155,6 @@ export const CERTIFICATES: Certificate[] = [
     file: '/certificates/approval-mumbai-2018.jpg',
     type: 'image',
     tags: ['University of Mumbai', 'Assistant Professor', 'Appointment Letter'],
-  },
-  {
-    id: 'cert-pg-teacher',
-    title: 'PG Recognized Teacher — Shivaji University Kolhapur',
-    issuer: 'Shivaji University, Kolhapur',
-    date: '2014',
-    year: 2014,
-    category: 'University Approval',
-    description: 'Recognized as PG Teacher by Shivaji University Kolhapur, authorizing supervision of M.E. dissertation research students.',
-    file: '/certificates/pg-teacher.jpg',
-    type: 'image',
-    tags: ['PG Teacher', 'Shivaji University', 'M.E. Supervision'],
   },
   {
     id: 'cert-cap-director',
@@ -199,45 +181,94 @@ export const CERTIFICATES: Certificate[] = [
     tags: ['Examiner', 'M.E. Dissertation', 'External Evaluator'],
   },
   {
-    id: 'cert-copyright-1',
-    title: 'Copyright Registration — Plant Species & Weed Classification (CNN)',
-    issuer: 'Copyright Office, Government of India',
-    date: 'May 2024',
-    year: 2024,
-    category: 'Award & Recognition',
-    description: 'Registered copyright for computer software: "Plant Species and Weed Classification for Precision Agriculture using CNN." Diary No: 14704/2024-CO/SW.',
-    file: '/certificates/copyright-plant-cnn.jpg',
+    id: 'cert-pg-teacher',
+    title: 'PG Recognized Teacher — Shivaji University Kolhapur',
+    issuer: 'Shivaji University, Kolhapur',
+    date: '2014',
+    year: 2014,
+    category: 'University Approval',
+    description: 'Recognized as PG Teacher by Shivaji University Kolhapur, authorizing supervision of M.E. dissertation research students.',
+    file: '/certificates/pg-teacher.jpg',
     type: 'image',
-    tags: ['Copyright', 'CNN', 'Software IP', 'Precision Agriculture'],
+    tags: ['PG Teacher', 'Shivaji University', 'M.E. Supervision'],
   },
   {
-    id: 'cert-copyright-2',
-    title: 'Copyright Registration — VR Interactive Online Education',
-    issuer: 'Copyright Office, Government of India',
-    date: 'December 2024',
-    year: 2024,
-    category: 'Award & Recognition',
-    description: 'Registered copyright for computer software: "A Virtual Reality Solution for Interactive and Engaging Online Education." Diary No: 25004/2024-CO/SW.',
-    file: '/certificates/copyright-vr-education.jpg',
+    id: 'cert-shivaji-ap-2014',
+    title: 'University Approval — Assistant Professor, Shivaji University',
+    issuer: 'Shivaji University, Kolhapur',
+    date: 'February 2014',
+    year: 2014,
+    category: 'University Approval',
+    description: 'Appointment approved as Assistant Professor in CSE Dept. Letter No. Afi/T3/STS/F-105 dated 10 Feb 2014.',
+    file: '/certificates/approval-shivaji-2014.jpg',
     type: 'image',
-    tags: ['Copyright', 'VR', 'Education Software', 'IP'],
+    tags: ['Shivaji University', 'Assistant Professor', 'Appointment Letter'],
   },
-
-  // ─────────────────────────────────────────────────────────
-  // ADD NEW CERTIFICATES HERE — copy & paste template:
-  // {
-  //   id: 'cert-UNIQUE-ID',
-  //   title: 'Certificate / Award Title',
-  //   issuer: 'Issuing Authority or Organization',
-  //   date: 'Month YYYY',
-  //   year: 2024,
-  //   category: 'Professional Development',  // choose from CertCategory
-  //   description: 'What this certificate represents.',
-  //   file: '/certificates/filename.jpg',    // or .pdf
-  //   type: 'image',                         // 'image' or 'pdf'
-  //   tags: ['Tag1', 'Tag2'],
-  // },
+  {
+    id: 'cert-mumbai-lecturer-2008',
+    title: 'University Approval — Lecturer, University of Mumbai',
+    issuer: 'University of Mumbai',
+    date: 'November 2008',
+    year: 2008,
+    category: 'University Approval',
+    description: 'Appointment approved as Lecturer in Computer Engineering Department. Letter No. CONCOL/SA/4532 dated 11 Nov 2008.',
+    file: '/certificates/approval-mumbai-2008.jpg',
+    type: 'image',
+    tags: ['University of Mumbai', 'Lecturer', 'Appointment Letter'],
+  },
 ]
+
+// Sort certificates: by year (descending), then by title (alphabetical)
+CERTIFICATES.sort((a, b) => {
+  if (a.year !== b.year) {
+    return b.year - a.year // Latest year first
+  }
+  return a.title.localeCompare(b.title) // Alphabetical within same year
+})
+
+// ── Dynamic KPIs ─────────────────────────────────────────────
+export const CERTIFICATE_KPIS = {
+  totalCertificates: CERTIFICATES.length,
+  uniqueCategories: new Set(CERTIFICATES.map(c => c.category)).size,
+  certificatesSince2020: CERTIFICATES.filter(c => c.year >= 2020).length,
+}
+
+// ── Category counts (dynamic) ────────────────────────────────
+export const getCategoryCounts = () => {
+  const counts: Record<string, number> = { All: CERTIFICATES.length }
+  CERTIFICATES.forEach(cert => {
+    counts[cert.category] = (counts[cert.category] || 0) + 1
+  })
+  return counts
+}
+
+// ── Year range (dynamic) ─────────────────────────────────────
+export const getYearRange = () => {
+  const years = CERTIFICATES.map(c => c.year)
+  return {
+    min: Math.min(...years),
+    max: Math.max(...years),
+  }
+}
+
+// ── Group certificates by year (for year-wise display) ───────
+export const getCertificatesByYear = () => {
+  const grouped: Record<number, Certificate[]> = {}
+  CERTIFICATES.forEach(cert => {
+    if (!grouped[cert.year]) {
+      grouped[cert.year] = []
+    }
+    grouped[cert.year].push(cert)
+  })
+  // Sort years descending
+  return Object.keys(grouped)
+    .map(Number)
+    .sort((a, b) => b - a)
+    .reduce((acc, year) => {
+      acc[year] = grouped[year]
+      return acc
+    }, {} as Record<number, Certificate[]>)
+}
 
 // ══════════════════════════════════════════════════════════════
 //  PATENTS
@@ -256,7 +287,7 @@ export const PATENTS: Patent[] = [
     type: 'Utility',
     description: 'An AI-driven precision farming system that uses Convolutional Neural Networks (CNN) and YOLO-based density estimation to classify crops and weeds from field imagery in real time. Enables targeted herbicide application, reducing overuse of chemicals and its environmental impact while improving crop yield and farm profitability.',
     tags: ['CNN', 'YOLO', 'Precision Agriculture', 'Crop & Weed', 'AI', 'Machine Learning', 'Computer Vision'],
-    file:'/patent/Patent1.jpg',
+    file: '/patent/Patent1.jpg',
     certType: 'image',
   },
   {
@@ -303,3 +334,6 @@ export const COPYRIGHTS: Copyright[] = [
     certType: 'pdf',
   },
 ]
+
+// Export all categories for filter
+export const ALL_CATEGORIES = ['All', ...Array.from(new Set(CERTIFICATES.map(c => c.category)))]

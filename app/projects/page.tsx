@@ -1,19 +1,29 @@
 'use client'
 
-// app/projects/page.tsx  (or link from /research/projects)
-// Research-lab style projects page for Dr. Sachin Takmare
-// Shows UG + PG student projects grouped by domain, with stats and visual flair
-
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Cpu, Leaf, Globe, Shield, GraduationCap,
   Users, BookOpen, Layers, ArrowRight,
   ChevronDown, ChevronUp, ExternalLink,
-  Brain, Microscope, Code2, FlaskConical,
-  Award, Calendar, Building2, Star,
+  Brain, Microscope, Code2, FlaskConical, FileText,
+  Award, Calendar, Building2, Star, Database, CloudOff,
 } from 'lucide-react'
+import {
+  STATIC_PROJECTS_CONTENT,
+  normalizeProjectsContent,
+  type ProjectsContentRaw,
+} from '@/lib/projectsContent'
+import { PROJECTS_KPIS, FILTER_TABS, MENTORSHIP_STEPS } from '../Database/Projectdata'
+import type { FilterTab } from '@/app/Database/Projectdata'
+
+type ApiState = {
+  ok?: boolean
+  source?: 'supabase' | 'backup'
+  content?: Partial<ProjectsContentRaw>
+  message?: string
+}
 
 // ── helpers ───────────────────────────────────────────────
 const up = (delay = 0) => ({
@@ -28,311 +38,354 @@ const SI = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as any } },
 }
 
-// ── DATA ─────────────────────────────────────────────────
-
-type PGProject = {
-  id: string
-  title: string
-  student: string
-  university: string
-  year: string
-  domain: string
-  summary: string
-  outcome: string
-  tags: string[]
-  color: string
-}
-
-type UGDomain = {
-  id: string
-  icon: any
-  domain: string
-  color: string
-  bg: string
-  description: string
-  totalGroups: number
-  highlights: string[]
-  technologies: string[]
-}
-
-const PG_PROJECTS: PGProject[] = [
-  {
-    id: 'pg-01',
-    title: 'Precision Farming: CNN-Based Crop and Weed Classification System',
-    student: 'Research Scholar (Ph.D. Level)',
-    university: 'Pacific University, Udaipur',
-    year: '2020–2024',
-    domain: 'AI & Precision Agriculture',
-    summary: 'Developed a full CNN-based pipeline for classifying crops and weed species from field images and estimating plant density using YOLO. The system enables targeted, eco-friendly herbicide deployment at scale.',
-    outcome: 'Resulted in Ph.D. award (2024), 2 international journal publications, and 1 filed utility patent (Application No: 202421045939).',
-    tags: ['CNN', 'YOLO', 'Precision Agriculture', 'Deep Learning', 'PhD'],
-    color: '#1A6B48',
-  },
-  {
-    id: 'pg-02',
-    title: 'Dynamic Analysis of Web Systems Using Model-Based Testing and Process Crawler',
-    student: 'Mrs. Nayan Mulla',
-    university: "Bharati Vidyapeeth's College of Engineering, Kolhapur (Shivaji University)",
-    year: '2016–2017',
-    domain: 'Software Engineering & Testing',
-    summary: 'Designed a model-based testing framework with a process crawler model for dynamic web system analysis, improving test coverage and defect detection in complex web applications.',
-    outcome: 'Published in IJECS (Vol. 6, Issue 6, 2017) and IJERT (Vol. 6, Issue 6, 2017). DOI: 10.18535/ijecs/v6i6.47.',
-    tags: ['Model-Based Testing', 'Web Analysis', 'Process Crawler', 'Dynamic Testing'],
-    color: '#1A3560',
-  },
-  {
-    id: 'pg-03',
-    title: 'Review and Analysis of K-means Clustering Algorithm Variations',
-    student: 'Ms. Kavita Shiudkar',
-    university: "Bharati Vidyapeeth's College of Engineering, Kolhapur (Shivaji University)",
-    year: '2016–2017',
-    domain: 'Machine Learning & Data Mining',
-    summary: 'Comprehensive review and comparative analysis of existing K-means clustering methods, evaluating convergence behavior, initialization strategies, and performance across datasets.',
-    outcome: 'Published in IRJET (Vol. 4, Issue 2, February 2017). e-ISSN: 2395-0056.',
-    tags: ['K-means', 'Clustering', 'Machine Learning', 'Data Mining'],
-    color: '#2D5B8A',
-  },
-  {
-    id: 'pg-04',
-    title: 'Sickle Cell Anemia Diagnosis Using Microscopic Image Analysis',
-    student: 'M.E. Research Scholar',
-    university: 'A. P. Shah Institute of Technology, Thane (University of Mumbai)',
-    year: '2021–2022',
-    domain: 'Medical Imaging & Deep Learning',
-    summary: 'Developed an automated diagnostic system using deep learning to classify sickle cell anemia from microscopic blood smear images, enabling faster and more accessible screening in resource-limited settings.',
-    outcome: 'Published in Neuroquantology (Vol. 20, Issue 17). E-ISSN: 1303-5150.',
-    tags: ['Medical Imaging', 'Sickle Cell Anemia', 'Deep Learning', 'Healthcare AI'],
-    color: '#7A1A1A',
-  },
-  {
-    id: 'pg-05',
-    title: 'MetaCampus: Virtual Reality Platform for Online Education',
-    student: 'M.E. Project Group',
-    university: 'A. P. Shah Institute of Technology, Thane (University of Mumbai)',
-    year: '2023–2024',
-    domain: 'EdTech & Virtual Reality',
-    summary: 'Built an immersive virtual classroom platform using metaverse technologies enabling interactive, real-time online education with spatial audio, virtual whiteboards, and student engagement tracking.',
-    outcome: 'Published at IEEE INOCON 2024. Copyright registered (Diary No: 25004/2024-CO/SW).',
-    tags: ['Virtual Reality', 'Online Education', 'Metaverse', 'IEEE'],
-    color: '#5C3A8A',
-  },
-  {
-    id: 'pg-06',
-    title: 'Intelligent Malware Metamorphosis and Evasion Prevention System',
-    student: 'M.E. Research Scholar',
-    university: 'A. P. Shah Institute of Technology, Thane (University of Mumbai)',
-    year: '2023–2024',
-    domain: 'Cybersecurity & AI',
-    summary: 'Designed an AI-based system that detects and prevents metamorphic malware by analyzing behavioural patterns, code transformations, and evasion techniques, outperforming signature-based methods.',
-    outcome: 'Resulted in a filed utility patent (Application No: 202421069724, Published Oct 2024).',
-    tags: ['Malware Detection', 'Cybersecurity', 'AI', 'Behavioural Analysis'],
-    color: '#0D1F3C',
-  },
-  {
-    id: 'pg-07',
-    title: 'NFT Gaming on Blockchain: Dodging Turtis',
-    student: 'M.E. Project Group',
-    university: 'A. P. Shah Institute of Technology, Thane (University of Mumbai)',
-    year: '2022–2023',
-    domain: 'Blockchain & Game Development',
-    summary: 'Developed a blockchain-integrated NFT-based game where in-game assets are tokenized as NFTs, enabling true digital ownership. Smart contracts manage game logic and asset transfers.',
-    outcome: 'Published at IEEE WCONF 2023. ISBN: 979-8-3503-1120-4/23.',
-    tags: ['NFT', 'Blockchain', 'Gaming', 'Smart Contracts', 'IEEE'],
-    color: '#3A2A6A',
-  },
-  {
-    id: 'pg-08',
-    title: 'Network Monitoring and System Diagnostic Suite',
-    student: 'Parth Vora, Harvinder Singh, Royston Rodrigues, Lavleen Jain',
-    university: 'A. P. Shah Institute of Technology, Thane (University of Mumbai)',
-    year: '2021–2022',
-    domain: 'Computer Networks & Systems',
-    summary: 'Built a comprehensive network monitoring dashboard providing real-time diagnostics, anomaly detection, traffic analysis, and system health reporting for enterprise network infrastructure.',
-    outcome: 'Published in IJRASET (Vol. 10, Issue IV, April 2022). ISSN: 2321-9653.',
-    tags: ['Network Monitoring', 'System Diagnostics', 'Real-Time Analysis', 'Computer Networks'],
-    color: '#2D5B8A',
-  },
-  {
-    id: 'pg-09',
-    title: 'Voice-Based Watermarking Technique for Relational Databases',
-    student: 'Research Collaboration',
-    university: 'Parshavanath College of Engineering, Thane (University of Mumbai)',
-    year: '2011–2012',
-    domain: 'Data Security & Watermarking',
-    summary: 'Proposed a novel watermarking technique for relational databases using voice signals as embedded watermarks. The detection algorithm works without access to the original data, making it robust against malicious attacks.',
-    outcome: 'Published in International Journal of Scientific & Technology Research (Vol. 1, Issue 10, Nov 2012). ISSN: 2277-8616.',
-    tags: ['Watermarking', 'Database Security', 'Voice Signal', 'Relational Database'],
-    color: '#5C3A1A',
-  },
-  {
-    id: 'pg-10',
-    title: 'Smart Farming with YOLO: Crop and Weed Density Prediction',
-    student: 'Research Collaboration',
-    university: 'D. Y. Patil College of Engineering & Technology, Kolhapur',
-    year: '2024–2025',
-    domain: 'AI & Precision Agriculture',
-    summary: 'Extended the PhD research to build a deployable field system using YOLO for real-time crop and weed density estimation. Integrates with drone imagery for large-scale farm monitoring.',
-    outcome: 'Published in IJOEAR (Vol. 6, Issue 10, 2024). ISSN: 2454-1850.',
-    tags: ['YOLO', 'Smart Farming', 'Drone Imagery', 'Real-Time AI'],
-    color: '#1A6B48',
-  },
-]
-
-const UG_DOMAINS: UGDomain[] = [
-  {
-    id: 'ug-ai',
-    icon: Brain,
-    domain: 'Artificial Intelligence & Machine Learning',
-    color: '#0D1F3C',
-    bg: 'rgba(13,31,60,0.07)',
-    description: 'Projects involving supervised/unsupervised learning, neural networks, NLP, and intelligent automation systems built using Python, TensorFlow, and PyTorch.',
-    totalGroups: 18,
-    highlights: [
-      'Sentiment analysis for social media data',
-      'Chatbot development using transformer models',
-      'Fraud detection using anomaly detection',
-      'Handwritten digit recognition systems',
-    ],
-    technologies: ['Python', 'TensorFlow', 'PyTorch', 'Scikit-learn', 'Keras', 'NLP'],
-  },
-  {
-    id: 'ug-cv',
-    icon: Microscope,
-    domain: 'Computer Vision & Image Processing',
-    color: '#1A6B48',
-    bg: 'rgba(26,107,72,0.07)',
-    description: 'Image classification, object detection, face recognition, and medical image analysis projects leveraging CNN architectures and OpenCV.',
-    totalGroups: 12,
-    highlights: [
-      'Face attendance system using OpenCV',
-      'Plant disease detection from leaf images',
-      'Real-time object detection for surveillance',
-      'X-ray image classification for diagnostics',
-    ],
-    technologies: ['OpenCV', 'CNN', 'YOLO', 'ResNet', 'VGG', 'Python'],
-  },
-  {
-    id: 'ug-web',
-    icon: Globe,
-    domain: 'Web & Mobile Application Development',
-    color: '#2D5B8A',
-    bg: 'rgba(45,91,138,0.07)',
-    description: 'Full-stack web apps, mobile applications, and cloud-integrated platforms built using modern frameworks for real-world problem domains.',
-    totalGroups: 14,
-    highlights: [
-      'E-commerce platforms with payment gateways',
-      'Hospital management information systems',
-      'Student examination portals',
-      'Job portal with ML-based matching',
-    ],
-    technologies: ['React', 'Node.js', 'Next.js', 'Flutter', 'Firebase', 'MongoDB'],
-  },
-  {
-    id: 'ug-sec',
-    icon: Shield,
-    domain: 'Cybersecurity & Network Systems',
-    color: '#5C3A8A',
-    bg: 'rgba(92,58,138,0.07)',
-    description: 'Network security tools, intrusion detection systems, encryption implementations, and cybersecurity analysis frameworks.',
-    totalGroups: 8,
-    highlights: [
-      'Network intrusion detection using ML',
-      'Password strength analyser and manager',
-      'Secure file transfer with AES encryption',
-      'Phishing website detection system',
-    ],
-    technologies: ['Python', 'Wireshark', 'Nmap', 'AES', 'RSA', 'Firewall'],
-  },
-  {
-    id: 'ug-iot',
-    icon: Cpu,
-    domain: 'IoT & Embedded Systems',
-    color: '#B8870A',
-    bg: 'rgba(184,135,10,0.07)',
-    description: 'Smart sensors, IoT dashboards, Arduino/Raspberry Pi projects, and real-time monitoring systems for agriculture, healthcare, and smart homes.',
-    totalGroups: 5,
-    highlights: [
-      'Smart irrigation system with soil sensors',
-      'Home automation using Raspberry Pi',
-      'Air quality monitoring dashboard',
-      'Patient health monitoring wearable',
-    ],
-    technologies: ['Arduino', 'Raspberry Pi', 'MQTT', 'Node-RED', 'AWS IoT', 'Python'],
-  },
-  {
-    id: 'ug-data',
-    icon: Layers,
-    domain: 'Data Science & Analytics',
-    color: '#7A1A1A',
-    bg: 'rgba(122,26,26,0.07)',
-    description: 'Big data analysis, data visualization, business intelligence dashboards, and predictive analytics projects using Python and BI tools.',
-    totalGroups: 3,
-    highlights: [
-      'Student performance prediction system',
-      'COVID-19 data analysis and visualization',
-      'Stock market trend prediction',
-    ],
-    technologies: ['Python', 'Pandas', 'Matplotlib', 'Tableau', 'Power BI', 'SQL'],
-  },
-]
-
-const FILTER_TABS = ['All', 'PG Dissertations', 'UG Projects'] as const
-type FilterTab = typeof FILTER_TABS[number]
-
-// ═════════════════════════════════════════════════════════
 export default function ProjectsPage() {
+  const [content, setContent] = useState(() => normalizeProjectsContent(STATIC_PROJECTS_CONTENT))
+  const [contentSource, setContentSource] = useState<'loading' | 'supabase' | 'backup'>('loading')
+  const [contentNotice, setContentNotice] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<FilterTab>('All')
   const [expandedPG, setExpandedPG] = useState<string | null>(null)
   const [expandedUG, setExpandedUG] = useState<string | null>(null)
 
+  useEffect(() => {
+    let active = true
+
+    const loadContent = async () => {
+      try {
+        const response = await fetch('/api/projects-content', { cache: 'no-store' })
+        const payload = (await response.json()) as ApiState
+
+        if (!active) {
+          return
+        }
+
+        setContent(normalizeProjectsContent(payload.content || STATIC_PROJECTS_CONTENT))
+        setContentSource(payload.source || 'backup')
+
+        if (payload.source !== 'supabase') {
+          setContentNotice(payload.message || 'Supabase is unavailable. Rendering the backup content file instead.')
+          if (payload.message) {
+            console.error('[projects-page] Falling back to static backup:', payload.message)
+          }
+        } else {
+          setContentNotice(null)
+        }
+      } catch {
+        if (!active) {
+          return
+        }
+
+        setContent(normalizeProjectsContent(STATIC_PROJECTS_CONTENT))
+        setContentSource('backup')
+        setContentNotice('Supabase is unavailable. Rendering the backup content file instead.')
+      }
+    }
+
+    loadContent()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const pgProjectsByYear = Object.groupBy(content.pgProjects, p => p.year.split('–')[0])
+  const pgYears = Object.keys(pgProjectsByYear).sort((a, b) => Number(b) - Number(a))
+  const hasLiveData = contentSource === 'supabase'
+
   return (
     <>
       {/* ── HERO ── */}
-      <section style={{
-        paddingTop: 'var(--nav-h)',
-        background: 'var(--navy)',
-        position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{ position: 'absolute', top: 'var(--nav-h)', left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, transparent, var(--gold-3), var(--gold), var(--gold-3), transparent)' }} />
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '52px 52px', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 65% 80% at 85% 55%, rgba(184,135,10,0.09) 0%, transparent 60%)', pointerEvents: 'none' }} />
+<section
+  style={{
+    paddingTop: 'var(--nav-h)',
+    background: 'var(--navy)',
+    position: 'relative',
+    overflow: 'hidden',
+  }}
+>
+  {/* Top gradient line */}
+  <div
+    style={{
+      position: 'absolute',
+      top: 'var(--nav-h)',
+      left: 0,
+      right: 0,
+      height: 3,
+      background:
+        'linear-gradient(90deg, transparent, var(--gold-3), var(--gold), var(--gold-3), transparent)',
+    }}
+  />
 
-        {/* Large watermark */}
-        <div style={{ position: 'absolute', right: -30, bottom: -20, fontFamily: 'Playfair Display, serif', fontWeight: 800, fontSize: 'clamp(80px, 16vw, 200px)', color: 'rgba(255,255,255,0.03)', lineHeight: 1, userSelect: 'none', pointerEvents: 'none', letterSpacing: '-0.04em' }}>70+</div>
+  {/* Grid background */}
+  <div
+    style={{
+      position: 'absolute',
+      inset: 0,
+      backgroundImage:
+        'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+      backgroundSize: '52px 52px',
+      pointerEvents: 'none',
+    }}
+  />
 
-        <div className="W" style={{ padding: 'clamp(52px, 9vh, 96px) clamp(18px, 5vw, 80px)', position: 'relative', zIndex: 1 }}>
-          <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
-            <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold-3)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 22, height: 2, background: 'var(--gold-3)', borderRadius: 2, display: 'inline-block' }} />
-              Projects & Mentorship
+  {/* Radial glow */}
+  <div
+    style={{
+      position: 'absolute',
+      inset: 0,
+      background:
+        'radial-gradient(ellipse 65% 80% at 85% 55%, rgba(184,135,10,0.09) 0%, transparent 60%)',
+      pointerEvents: 'none',
+    }}
+  />
+
+  {/* Watermark */}
+  <div
+    style={{
+      position: 'absolute',
+      right: -30,
+      bottom: -20,
+      fontFamily: 'Playfair Display, serif',
+      fontWeight: 800,
+      fontSize: 'clamp(80px, 16vw, 200px)',
+      color: 'rgba(255,255,255,0.03)',
+      lineHeight: 1,
+      userSelect: 'none',
+      pointerEvents: 'none',
+      letterSpacing: '-0.04em',
+    }}
+  >
+    {PROJECTS_KPIS.totalUGGroups + PROJECTS_KPIS.totalPGProjects}+
+  </div>
+
+  <div
+    style={{
+      position: 'absolute',
+      top: 'calc(var(--nav-h) + 18px)',
+      right: 'clamp(16px, 4vw, 48px)',
+      zIndex: 2,
+      padding: '8px 12px',
+      borderRadius: 999,
+      border: '1px solid rgba(255,255,255,0.16)',
+      background: hasLiveData ? 'rgba(5,150,105,0.16)' : 'rgba(217,119,6,0.18)',
+      color: '#fff',
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+    }}
+  >
+    {hasLiveData ? <Database size={13} /> : <CloudOff size={13} />}
+    {hasLiveData ? 'Live rendering' : 'Backup rendering'}
+  </div>
+
+  {/* Main Wrapper */}
+  <div
+    className="W"
+    style={{
+      padding: 'clamp(52px, 9vh, 96px) clamp(18px, 5vw, 80px)',
+      position: 'relative',
+      zIndex: 1,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      textAlign: 'center',
+    }}
+  >
+    <motion.div
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+      style={{
+        maxWidth: 800,
+        width: '100%',
+      }}
+    >
+      {/* Label */}
+      <p
+        style={{
+          fontSize: 10.5,
+          fontWeight: 700,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'var(--gold-3)',
+          marginBottom: 14,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
+        <span
+          style={{
+            width: 22,
+            height: 2,
+            background: 'var(--gold-3)',
+            borderRadius: 2,
+            display: 'inline-block',
+          }}
+        />
+        Projects & Mentorship
+      </p>
+
+      {/* Heading */}
+      <h1
+        style={{
+          fontFamily: 'Playfair Display, serif',
+          fontSize: 'clamp(36px, 6vw, 70px)',
+          fontWeight: 800,
+          color: '#F0F4F8',
+          lineHeight: 1.05,
+          letterSpacing: '-0.025em',
+          marginBottom: 18,
+          marginInline: 'auto',
+          maxWidth: 700,
+        }}
+      >
+        Shaping Engineers Through{' '}
+        <em
+          style={{
+            color: 'var(--gold-3)',
+            fontStyle: 'italic',
+            fontWeight: 600,
+          }}
+        >
+          Research & Innovation
+        </em>
+      </h1>
+
+      {/* Description */}
+      <p
+        style={{
+          fontSize: 'clamp(14px, 1.4vw, 17px)',
+          color: 'rgba(226,232,240,0.70)',
+          lineHeight: 1.75,
+          marginBottom: 36,
+          fontWeight: 300,
+          marginInline: 'auto',
+          maxWidth: 600,
+        }}
+      >
+        Over {PROJECTS_KPIS.totalUGGroups + PROJECTS_KPIS.totalPGProjects}{' '}
+        student projects guided across 18 years — from undergraduate capstone
+        projects to M.E. dissertations that resulted in patents, international
+        publications, and IEEE conference papers.
+      </p>
+
+      {/* Stats Grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+          maxWidth: 560,
+          gap: '1px',
+          background: 'rgba(255,255,255,0.08)',
+          borderRadius: 12,
+          overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.08)',
+          margin: '0 auto',
+        }}
+      >
+        {[
+          {
+            n: PROJECTS_KPIS.totalPGProjects,
+            l: 'M.E. / PG',
+            s: 'Dissertations',
+          },
+          {
+            n: PROJECTS_KPIS.totalUGGroups,
+            l: 'UG Groups',
+            s: 'Capstone Projects',
+          },
+          {
+            n: PROJECTS_KPIS.totalDomains,
+            l: 'Domains',
+            s: 'Specializations',
+          },
+          {
+            n: PROJECTS_KPIS.publishedStudentResearch,
+            l: 'Published',
+            s: 'Student Research',
+          },
+        ].map((s, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 + i * 0.07 }}
+            style={{
+              padding:
+                'clamp(16px, 2.5vw, 24px) clamp(10px, 1.5vw, 16px)',
+              textAlign: 'center',
+              background: 'rgba(13,31,60,0.5)',
+            }}
+          >
+            <p
+              style={{
+                fontFamily: 'Playfair Display, serif',
+                fontSize: 'clamp(26px, 3vw, 38px)',
+                fontWeight: 700,
+                color: 'var(--gold-3)',
+                lineHeight: 1,
+              }}
+            >
+              {s.n}
             </p>
-            <h1 style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(36px, 6vw, 70px)', fontWeight: 800, color: '#F0F4F8', lineHeight: 1.05, letterSpacing: '-0.025em', marginBottom: 18, maxWidth: 700 }}>
-              Shaping Engineers Through{' '}
-              <em style={{ color: 'var(--gold-3)', fontStyle: 'italic', fontWeight: 600 }}>Research & Innovation</em>
-            </h1>
-            <p style={{ fontSize: 'clamp(14px, 1.4vw, 17px)', color: 'rgba(226,232,240,0.70)', lineHeight: 1.75, maxWidth: 600, marginBottom: 36, fontWeight: 300 }}>
-              Over 70 student projects guided across 18 years — from undergraduate capstone projects to M.E. dissertations that resulted in patents, international publications, and IEEE conference papers.
+            <p
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#E2E8F0',
+                marginTop: 4,
+              }}
+            >
+              {s.l}
             </p>
-
-            {/* Quick stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', maxWidth: 560, gap: '1px', background: 'rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-              {[
-                { n: '10',  l: 'M.E. / PG', s: 'Dissertations' },
-                { n: '60+', l: 'UG Groups', s: 'Capstone Projects' },
-                { n: '6',   l: 'Domains',   s: 'Specializations' },
-                { n: '5',   l: 'Published', s: 'Student Research' },
-              ].map((s, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.07 }}
-                  style={{ padding: 'clamp(16px, 2.5vw, 24px) clamp(10px, 1.5vw, 16px)', textAlign: 'center', background: 'rgba(13,31,60,0.5)' }}>
-                  <p style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(26px, 3vw, 38px)', fontWeight: 700, color: 'var(--gold-3)', lineHeight: 1 }}>{s.n}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#E2E8F0', marginTop: 4 }}>{s.l}</p>
-                  <p style={{ fontSize: 9.5, color: 'rgba(226,232,240,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2 }}>{s.s}</p>
-                </motion.div>
-              ))}
-            </div>
+            <p
+              style={{
+                fontSize: 9.5,
+                color: 'rgba(226,232,240,0.45)',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                marginTop: 2,
+              }}
+            >
+              {s.s}
+            </p>
           </motion.div>
-        </div>
-      </section>
+        ))}
+      </div>
+    </motion.div>
+  </div>
+
+  {/* Content Source Indicator & Notice */}
+  <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-line)', padding: '16px clamp(18px, 5vw, 80px)' }}>
+    <div className="W" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {contentSource === 'supabase' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#059669', fontWeight: 600 }}>
+            <Database size={14} /> Live from Supabase
+          </div>
+        ) : contentSource === 'backup' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#D97706', fontWeight: 600 }}>
+            <CloudOff size={14} /> Backup content active
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6B7280', fontWeight: 600 }}>
+            Loading...
+          </div>
+        )}
+      </div>
+      {contentNotice && (
+        <p style={{ fontSize: 12, color: '#666', margin: 0, maxWidth: 600 }}>
+          {contentNotice}
+        </p>
+      )}
+    </div>
+  </div>
+</section>
 
       {/* ── TAB BAR ── */}
       <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-line)', position: 'sticky', top: 'var(--nav-h)', zIndex: 100, boxShadow: '0 2px 12px rgba(13,31,60,0.05)' }}>
@@ -373,118 +426,148 @@ export default function ProjectsPage() {
                   </h2>
                 </div>
                 <p style={{ fontSize: 14, color: 'var(--ink-3)', lineHeight: 1.75, maxWidth: 640, fontWeight: 300 }}>
-                  10 M.E. students guided to completion. Each dissertation represents original research that advanced knowledge in AI, cybersecurity, web engineering, and healthcare informatics — many resulting in international publications and patents.
+                  {PROJECTS_KPIS.totalPGProjects} M.E. students guided to completion. Each dissertation represents original research that advanced knowledge in AI, cybersecurity, web engineering, and healthcare informatics — many resulting in international publications and patents.
                 </p>
               </motion.div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {PG_PROJECTS.map((p, i) => {
-                  const isOpen = expandedPG === p.id
-                  return (
-                    <motion.div key={p.id} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05, duration: 0.55 }}>
-                      <div style={{
-                        background: '#fff', border: '1px solid rgba(15,23,42,0.08)',
-                        borderRadius: 12, overflow: 'hidden',
-                        boxShadow: isOpen ? 'var(--sh2)' : 'var(--sh1)',
-                        transition: 'box-shadow 0.2s, border-color 0.2s',
-                        borderColor: isOpen ? `${p.color}40` : 'rgba(15,23,42,0.08)',
-                      }}>
-                        {/* Color bar */}
-                        <div style={{ height: 3, background: `linear-gradient(90deg, ${p.color}, var(--gold))` }} />
+              {pgYears.map((year, yi) => (
+                <div key={year} style={{ marginBottom: 'clamp(32px, 5vh, 48px)' }}>
+                  <motion.div
+                    initial={{ opacity: 0, x: -16 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: yi * 0.05, duration: 0.5 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}
+                  >
+                    <Calendar size={14} style={{ color: 'var(--gold)' }} />
+                    <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(18px, 2vw, 24px)', fontWeight: 700, color: 'var(--navy)' }}>{year}</h3>
+                    <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, var(--ink-line), transparent)' }} />
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>{pgProjectsByYear[year]?.length || 0} projects</span>
+                  </motion.div>
 
-                        {/* Header — always visible */}
-                        <button
-                          onClick={() => setExpandedPG(isOpen ? null : p.id)}
-                          style={{
-                            width: '100%', display: 'flex', alignItems: 'center', gap: 16,
-                            padding: 'clamp(16px, 2.5vw, 22px) clamp(16px, 2.5vw, 24px)',
-                            background: 'transparent', border: 'none', cursor: 'pointer',
-                            textAlign: 'left', fontFamily: 'DM Sans, sans-serif',
-                          }}
-                        >
-                          {/* Index */}
-                          <div style={{ width: 38, height: 38, borderRadius: 9, background: `${p.color}10`, border: `1px solid ${p.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <p style={{ fontFamily: 'Playfair Display, serif', fontSize: 16, fontWeight: 700, color: p.color, lineHeight: 1 }}>{i + 1}</p>
-                          </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {pgProjectsByYear[year]?.map((p, i) => {
+                      const isOpen = expandedPG === p.id
+                      return (
+                        <motion.div key={p.id} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.04, duration: 0.55 }}>
+                          <div style={{
+                            background: '#fff', border: '1px solid rgba(15,23,42,0.08)',
+                            borderRadius: 12, overflow: 'hidden',
+                            boxShadow: isOpen ? 'var(--sh2)' : 'var(--sh1)',
+                            transition: 'box-shadow 0.2s, border-color 0.2s',
+                            borderColor: isOpen ? `${p.color}40` : 'rgba(15,23,42,0.08)',
+                          }}>
+                            <div style={{ height: 3, background: `linear-gradient(90deg, ${p.color}, var(--gold))` }} />
 
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: p.color, background: `${p.color}10`, border: `1px solid ${p.color}28`, padding: '2px 8px', borderRadius: 4 }}>{p.domain}</span>
-                              <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>{p.year}</span>
-                            </div>
-                            <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(14.5px, 1.4vw, 17px)', fontWeight: 600, color: 'var(--navy)', lineHeight: 1.35 }}>
-                              {p.title}
-                            </h3>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                            <span style={{ fontSize: 12, color: 'var(--ink-4)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <Users size={11} /> {p.student.split(',')[0]}
-                            </span>
-                            <div style={{ width: 28, height: 28, borderRadius: 7, background: isOpen ? 'var(--navy-pale)' : 'var(--off)', border: '1px solid var(--ink-line)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isOpen ? 'var(--navy)' : 'var(--ink-4)', transition: 'all 0.18s' }}>
-                              {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                            </div>
-                          </div>
-                        </button>
-
-                        {/* Expandable detail */}
-                        <AnimatePresence>
-                          {isOpen && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                              style={{ overflow: 'hidden' }}
+                            <button
+                              onClick={() => setExpandedPG(isOpen ? null : p.id)}
+                              style={{
+                                width: '100%', display: 'flex', alignItems: 'center', gap: 16,
+                                padding: 'clamp(16px, 2.5vw, 22px) clamp(16px, 2.5vw, 24px)',
+                                background: 'transparent', border: 'none', cursor: 'pointer',
+                                textAlign: 'left', fontFamily: 'DM Sans, sans-serif',
+                              }}
                             >
-                              <div style={{ padding: '0 clamp(16px, 2.5vw, 24px) clamp(20px, 3vw, 28px)', paddingLeft: 'calc(clamp(16px, 2.5vw, 24px) + 38px + 16px)' }}>
-                                <div style={{ height: 1, background: 'var(--ink-line)', marginBottom: 18 }} />
+                              <div style={{ width: 38, height: 38, borderRadius: 9, background: `${p.color}10`, border: `1px solid ${p.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <p style={{ fontFamily: 'Playfair Display, serif', fontSize: 16, fontWeight: 700, color: p.color, lineHeight: 1 }}>{i + 1}</p>
+                              </div>
 
-                                {/* Student + university */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
-                                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                    <Users size={12} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: 3 }} />
-                                    <div>
-                                      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 2 }}>Student / Scholar</p>
-                                      <p style={{ fontSize: 13, color: 'var(--ink-2)', fontWeight: 500 }}>{p.student}</p>
-                                    </div>
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                    <Building2 size={12} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: 3 }} />
-                                    <div>
-                                      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 2 }}>Institution</p>
-                                      <p style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.4 }}>{p.university}</p>
-                                    </div>
-                                  </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: p.color, background: `${p.color}10`, border: `1px solid ${p.color}28`, padding: '2px 8px', borderRadius: 4 }}>{p.domain}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>{p.year}</span>
                                 </div>
+                                <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(14.5px, 1.4vw, 17px)', fontWeight: 600, color: 'var(--navy)', lineHeight: 1.35 }}>
+                                  {p.title}
+                                </h3>
+                              </div>
 
-                                {/* Summary */}
-                                <p style={{ fontSize: 13.5, color: 'var(--ink-3)', lineHeight: 1.78, marginBottom: 14, fontWeight: 300 }}>{p.summary}</p>
-
-                                {/* Outcome */}
-                                <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 8, background: 'rgba(26,107,72,0.06)', border: '1px solid rgba(26,107,72,0.18)', marginBottom: 16 }}>
-                                  <Award size={14} style={{ color: '#1A6B48', flexShrink: 0, marginTop: 2 }} />
-                                  <div>
-                                    <p style={{ fontSize: 10.5, fontWeight: 700, color: '#1A5038', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Research Outcome</p>
-                                    <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.6 }}>{p.outcome}</p>
-                                  </div>
-                                </div>
-
-                                {/* Tags */}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                  {p.tags.map(t => (
-                                    <span key={t} className="tag" style={{ fontSize: 10.5 }}>{t}</span>
-                                  ))}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                                {p.student && (
+                                  <span style={{ fontSize: 12, color: 'var(--ink-4)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <Users size={11} /> {p.student.split(',')[0]}
+                                  </span>
+                                )}
+                                <div style={{ width: 28, height: 28, borderRadius: 7, background: isOpen ? 'var(--navy-pale)' : 'var(--off)', border: '1px solid var(--ink-line)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isOpen ? 'var(--navy)' : 'var(--ink-4)', transition: 'all 0.18s' }}>
+                                  {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                 </div>
                               </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </div>
+                            </button>
+
+                            <AnimatePresence>
+                              {isOpen && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                                  style={{ overflow: 'hidden' }}
+                                >
+                                  <div style={{ padding: '0 clamp(16px, 2.5vw, 24px) clamp(20px, 3vw, 28px)', paddingLeft: 'calc(clamp(16px, 2.5vw, 24px) + 38px + 16px)' }}>
+                                    <div style={{ height: 1, background: 'var(--ink-line)', marginBottom: 18 }} />
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+                                      {p.student && (
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                          <Users size={12} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: 3 }} />
+                                          <div>
+                                            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 2 }}>Student / Scholar</p>
+                                            <p style={{ fontSize: 13, color: 'var(--ink-2)', fontWeight: 500 }}>{p.student}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {p.university && (
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                          <Building2 size={12} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: 3 }} />
+                                          <div>
+                                            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 2 }}>Institution</p>
+                                            <p style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.4 }}>{p.university}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <p style={{ fontSize: 13.5, color: 'var(--ink-3)', lineHeight: 1.78, marginBottom: 14, fontWeight: 300 }}>{p.summary}</p>
+
+                                    <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 8, background: 'rgba(26,107,72,0.06)', border: '1px solid rgba(26,107,72,0.18)', marginBottom: 16 }}>
+                                      <Award size={14} style={{ color: '#1A6B48', flexShrink: 0, marginTop: 2 }} />
+                                      <div>
+                                        <p style={{ fontSize: 10.5, fontWeight: 700, color: '#1A5038', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Research Outcome</p>
+                                        <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.6 }}>{p.outcome}</p>
+                                      </div>
+                                    </div>
+
+                                    {(p.link || p.uploadUrl) && (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+                                        {p.link && (
+                                          <a href={p.link} target="_blank" rel="noreferrer" className="btn-out" style={{ padding: '10px 16px', fontSize: 13 }}>
+                                            <ExternalLink size={14} /> View link
+                                          </a>
+                                        )}
+                                        {p.uploadUrl && (
+                                          <a href={p.uploadUrl} target="_blank" rel="noreferrer" className="btn-navy" style={{ padding: '10px 16px', fontSize: 13 }}>
+                                            <FileText size={14} /> Open upload
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                      {p.tags.map(t => (
+                                        <span key={t} className="tag" style={{ fontSize: 10.5 }}>{t}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </motion.section>
         )}
@@ -510,50 +593,56 @@ export default function ProjectsPage() {
                   </h2>
                 </div>
                 <p style={{ fontSize: 14, color: 'var(--ink-3)', lineHeight: 1.75, maxWidth: 640, fontWeight: 300 }}>
-                  60+ UG project groups guided across 6 technical domains. Each group received mentorship from problem definition through design, development, testing, and final presentation.
+                  {PROJECTS_KPIS.totalUGGroups} UG project groups guided across {PROJECTS_KPIS.totalDomains} technical domains. Each group received mentorship from problem definition through design, development, testing, and final presentation.
                 </p>
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={ST}
                 style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(clamp(280px, 44%, 500px), 1fr))', gap: 'clamp(14px, 2vw, 22px)' }}>
-                {UG_DOMAINS.map(d => {
+                {content.ugDomains.map(d => {
                   const isOpen = expandedUG === d.id
+                  const DomainIcon = d.icon || Brain
                   return (
                     <motion.div key={d.id} variants={SI}>
                       <div style={{
-                        background: '#fff', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 13,
-                        overflow: 'hidden', height: '100%',
-                        boxShadow: isOpen ? 'var(--sh2)' : 'var(--sh1)',
+                        background: 'linear-gradient(180deg, #fff 0%, #FBFCFE 100%)',
+                        border: '1px solid rgba(15,23,42,0.08)',
+                        borderRadius: 16,
+                        overflow: 'hidden',
+                        height: '100%',
+                        boxShadow: isOpen ? '0 18px 44px rgba(13,31,60,0.14)' : 'var(--sh1)',
                         borderColor: isOpen ? `${d.color}40` : 'rgba(15,23,42,0.08)',
-                        transition: 'box-shadow 0.2s, border-color 0.2s',
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
+                        transform: isOpen ? 'translateY(-2px)' : 'translateY(0)',
                       }}>
-                        <div style={{ height: 3, background: `linear-gradient(90deg, ${d.color}, var(--gold))` }} />
+                        <div style={{ height: 4, background: `linear-gradient(90deg, ${d.color}, var(--gold), ${d.color})` }} />
 
                         <div style={{ padding: 'clamp(18px, 2.5vw, 26px)' }}>
-                          {/* Domain header */}
                           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 10, background: d.bg, border: `1px solid ${d.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <d.icon size={20} style={{ color: d.color }} />
+                            <div style={{ width: 48, height: 48, borderRadius: 12, background: d.bg, border: `1px solid ${d.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `inset 0 0 0 1px ${d.color}10` }}>
+                              <DomainIcon size={20} style={{ color: d.color }} />
                             </div>
                             <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                                <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: d.color, background: `${d.color}10`, border: `1px solid ${d.color}28`, padding: '2px 8px', borderRadius: 4 }}>UG Domain</span>
+                                <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>{d.totalGroups} groups</span>
+                              </div>
                               <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(15px, 1.4vw, 17px)', fontWeight: 600, color: 'var(--navy)', lineHeight: 1.3, marginBottom: 5 }}>{d.domain}</h3>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <span style={{ fontFamily: 'Playfair Display, serif', fontSize: 22, fontWeight: 700, color: d.color, lineHeight: 1 }}>{d.totalGroups}+</span>
                                 <span style={{ fontSize: 11, color: 'var(--ink-4)', fontWeight: 500 }}>project groups</span>
                               </div>
                             </div>
                           </div>
 
-                          <p style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.72, marginBottom: 14 }}>{d.description}</p>
+                          {d.description && <p style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.72, marginBottom: 14 }}>{d.description}</p>}
 
-                          {/* Tech chips */}
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14 }}>
                             {d.technologies.map(t => (
                               <span key={t} className="tag" style={{ fontSize: 10.5 }}>{t}</span>
                             ))}
                           </div>
 
-                          {/* Expand button */}
                           <button
                             onClick={() => setExpandedUG(isOpen ? null : d.id)}
                             style={{
@@ -569,7 +658,6 @@ export default function ProjectsPage() {
                             {isOpen ? 'Hide project highlights' : 'Show project highlights'}
                           </button>
 
-                          {/* Highlights */}
                           <AnimatePresence>
                             {isOpen && (
                               <motion.div
@@ -582,13 +670,20 @@ export default function ProjectsPage() {
                                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--ink-line)' }}>
                                   <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 10 }}>Sample Projects</p>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {d.highlights.map((h, i) => (
-                                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                    {d.highlights.map((h, idx) => (
+                                      <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                                         <div style={{ width: 5, height: 5, borderRadius: '50%', background: d.color, flexShrink: 0, marginTop: 6 }} />
                                         <p style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>{h}</p>
                                       </div>
                                     ))}
                                   </div>
+                                  {d.technologies.length > 0 && (
+                                    <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                      {d.technologies.slice(0, 4).map((item) => (
+                                        <span key={item} style={{ fontSize: 10, padding: '4px 8px', borderRadius: 999, background: 'rgba(13,31,60,0.05)', color: 'var(--ink-3)', border: '1px solid var(--ink-line)' }}>{item}</span>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               </motion.div>
                             )}
@@ -625,12 +720,7 @@ export default function ProjectsPage() {
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {[
-                { step: '01', title: 'Problem Identification', desc: 'Students identify real-world gaps with literature support and clear problem statements.' },
-                { step: '02', title: 'Research Methodology', desc: 'Guided design of experiments, dataset collection, and architectural decisions.' },
-                { step: '03', title: 'Build & Iterate',       desc: 'Hands-on development with regular review cycles and iterative refinement.' },
-                { step: '04', title: 'Document & Publish',    desc: 'Quality work is submitted to journals and conferences — real academic output.' },
-              ].map((s, i) => (
+              {MENTORSHIP_STEPS.map((s, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
                   style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                   <span style={{ fontFamily: 'Playfair Display, serif', fontSize: 22, fontWeight: 700, color: 'var(--gold-3)', lineHeight: 1, flexShrink: 0, minWidth: 32 }}>{s.step}</span>
@@ -658,8 +748,8 @@ export default function ProjectsPage() {
               I am open to supervising M.E. dissertations, co-authoring research, and guiding institutional capstone projects in AI, ML, and Computer Vision.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-              <Link href="/contact"  className="btn-navy" style={{ padding: '12px 26px', fontSize: 14 }}>Discuss a Project <ArrowRight size={14} /></Link>
-              <Link href="/research" className="btn-out"  style={{ padding: '12px 26px', fontSize: 14 }}>View Publications</Link>
+              <Link href="/contact" className="btn-navy" style={{ padding: '12px 26px', fontSize: 14 }}>Discuss a Project <ArrowRight size={14} /></Link>
+              <Link href="/research" className="btn-out" style={{ padding: '12px 26px', fontSize: 14 }}>View Publications</Link>
             </div>
           </motion.div>
         </div>

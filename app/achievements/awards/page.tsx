@@ -1,24 +1,23 @@
 'use client'
 
-// app/achievements/awards/page.tsx
-// Awards & Honours page for Dr. Sachin Takmare
-//
-// Design: Editorial broadsheet layout — NOT a typical card grid.
-// Hero: full-width navy with large typographic number.
-// Main section: asymmetric two-column with a "featured award" large card
-// and a scrollable timeline rail.
-// Bottom: recognition wall — horizontal scroll on mobile, masonry on desktop.
-
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Award, GraduationCap, Building2, Star,
-  Shield, BookOpen, Users, Briefcase,
-  CheckCircle2, ArrowRight, Calendar,
-  Quote, Trophy, Layers, School,
-  FlaskConical, Target, Globe,
+  ArrowRight, Calendar,
+  Quote, Trophy, FileCheck, ExternalLink,
+  Download, X, Database, CloudOff,
 } from 'lucide-react'
+import {
+  AWARD_CATEGORIES,
+  CATEGORY_COLORS,
+  STATIC_ACHIEVEMENTS_AWARDS_CONTENT,
+  hydrateAchievementsAwardsContent,
+  normalizeAchievementsAwardsContent,
+  type AwardItemHydrated,
+  type AwardsContentRaw,
+} from '@/lib/awardsContent'
 
 // ── Animation ─────────────────────────────────────────────
 const up = (delay = 0) => ({
@@ -27,258 +26,118 @@ const up = (delay = 0) => ({
   viewport: { once: true, margin: '-40px' },
   transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] as any },
 })
-const fromLeft = (delay = 0) => ({
-  initial: { opacity: 0, x: -32 },
-  whileInView: { opacity: 1, x: 0 },
-  viewport: { once: true, margin: '-40px' },
-  transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] as any },
-})
-const fromRight = (delay = 0) => ({
-  initial: { opacity: 0, x: 32 },
-  whileInView: { opacity: 1, x: 0 },
-  viewport: { once: true, margin: '-40px' },
-  transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] as any },
-})
+
 const ST = { hidden: {}, visible: { transition: { staggerChildren: 0.09 } } }
 const SI = {
   hidden: { opacity: 0, y: 22 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.58, ease: [0.22, 1, 0.36, 1] as any } },
 }
 
-// ── Data ─────────────────────────────────────────────────
+type AwardCategory = AwardItemHydrated['category']
 
-type AwardCategory = 'Academic' | 'Research' | 'Institutional' | 'Intellectual Property' | 'Professional'
-
-interface AwardItem {
-  id: string
-  category: AwardCategory
-  year: string
-  title: string
-  body: string           // issuing body
-  description: string
-  icon: any
-  color: string
-  featured?: boolean
-  tags: string[]
+type ApiState = {
+  source?: 'supabase' | 'backup'
+  content?: Partial<AwardsContentRaw>
+  message?: string
 }
 
-const AWARDS: AwardItem[] = [
-  {
-    id: 'phd',
-    category: 'Academic',
-    year: '2024',
-    title: 'Doctor of Philosophy (Ph.D.)',
-    body: 'Pacific University, Udaipur',
-    description: 'Doctoral degree awarded for the thesis "Precision Farming: CNN-Based System for Crop and Weed Classification and Density Analysis". The research developed a deep learning pipeline automating crop-weed identification from field imagery, resulting in 2 international publications and a filed utility patent.',
-    icon: GraduationCap,
-    color: '#0D1F3C',
-    featured: true,
-    tags: ['Doctorate', 'AI Research', 'Precision Agriculture', 'CNN'],
-  },
-  {
-    id: 'patent-1',
-    category: 'Intellectual Property',
-    year: '2024',
-    title: 'Utility Patent — AI Crop & Weed Management System',
-    body: 'Indian Patent Office, Mumbai',
-    description: 'Utility patent filed and published for an AI-driven precision farming system that classifies crops and weeds using CNNs and estimates plant density using YOLO, enabling targeted pesticide deployment. Patent Application No: 202421045939. Docket No: 56637.',
-    icon: Shield,
-    color: '#B8870A',
-    featured: false,
-    tags: ['Patent', 'AI', 'Precision Farming', 'YOLO'],
-  },
-  {
-    id: 'patent-2',
-    category: 'Intellectual Property',
-    year: '2024',
-    title: 'Utility Patent — Intelligent Malware Evasion Prevention',
-    body: 'Indian Patent Office',
-    description: 'Utility patent for an intelligent system detecting and preventing metamorphic malware using behavioural machine learning analysis. Patent Application No: 202421069724. Published October 2024.',
-    icon: Shield,
-    color: '#2D5B8A',
-    featured: false,
-    tags: ['Patent', 'Cybersecurity', 'Machine Learning'],
-  },
-  {
-    id: 'copyright-1',
-    category: 'Intellectual Property',
-    year: '2024',
-    title: 'Registered Copyright — Plant Species & Weed CNN Software',
-    body: 'Copyright Office, Government of India',
-    description: 'Software copyright for the CNN-based plant species and weed classification application developed as part of the precision agriculture research. Diary No: 14704/2024-CO/SW. Registered 7 May 2024.',
-    icon: BookOpen,
-    color: '#1A6B48',
-    featured: false,
-    tags: ['Copyright', 'Software', 'CNN', 'Agriculture'],
-  },
-  {
-    id: 'copyright-2',
-    category: 'Intellectual Property',
-    year: '2024',
-    title: 'Registered Copyright — VR Online Education Software',
-    body: 'Copyright Office, Government of India',
-    description: 'Software copyright for the Virtual Reality solution for interactive and engaging online education. Diary No: 25004/2024-CO/SW. Registered 27 December 2024.',
-    icon: Globe,
-    color: '#5C3A8A',
-    featured: false,
-    tags: ['Copyright', 'VR', 'EdTech', 'Software'],
-  },
-  {
-    id: 'pg-teacher',
-    category: 'Academic',
-    year: '2014',
-    title: 'PG Recognized Teacher',
-    body: 'Shivaji University, Kolhapur',
-    description: 'Officially recognized as a Post-Graduate teacher by Shivaji University Kolhapur, authorizing supervision of M.E. (Master of Engineering) research dissertations. A distinction awarded to faculty who demonstrate research expertise and pedagogical excellence.',
-    icon: Award,
-    color: '#B8870A',
-    featured: false,
-    tags: ['University Recognition', 'PG Teaching', 'Research Supervision'],
-  },
-  {
-    id: 'cap-director',
-    category: 'Professional',
-    year: '2014',
-    title: 'Appointed Assistant CAP Director',
-    body: 'Shivaji University, Kolhapur',
-    description: 'Appointed by Shivaji University Kolhapur as Assistant CAP (Centralised Admission Process) Director, responsible for coordinating merit-based admissions for M.E. programmes across affiliated institutions.',
-    icon: Briefcase,
-    color: '#1A3560',
-    featured: false,
-    tags: ['Appointment', 'Shivaji University', 'Admission Process'],
-  },
-  {
-    id: 'me-examiner',
-    category: 'Professional',
-    year: '2014',
-    title: 'External Evaluator — M.E. Dissertations',
-    body: 'Shivaji University, Kolhapur',
-    description: 'Appointed as External Evaluator and Examiner for M.E. (Master of Engineering) dissertation assessment under Shivaji University Kolhapur — evaluating research quality, methodology, innovation, and academic presentation.',
-    icon: School,
-    color: '#2D5B8A',
-    featured: false,
-    tags: ['External Examiner', 'M.E. Evaluation', 'Research Assessment'],
-  },
-  {
-    id: 'nba',
-    category: 'Institutional',
-    year: '2023',
-    title: 'NBA Criteria-3 Coordinator',
-    body: 'A. P. Shah Institute of Technology, Thane',
-    description: 'Led the NBA (National Board of Accreditation) Criteria-3 accreditation process — covering Research, Consultancy & Extension activities. Responsible for documentation, faculty research tracking, and student outcome mapping.',
-    icon: Target,
-    color: '#1A6B48',
-    featured: false,
-    tags: ['NBA', 'Accreditation', 'Institutional Leadership'],
-  },
-  {
-    id: 'pbl',
-    category: 'Institutional',
-    year: '2017',
-    title: 'PBL In-charge — Project-Based Learning',
-    body: 'A. P. Shah Institute of Technology, Thane',
-    description: 'Designed and led the Project-Based Learning (PBL) framework across all undergraduate semesters. Created evaluation rubrics, faculty training materials, and implemented industry-connected project themes.',
-    icon: Layers,
-    color: '#7A5500',
-    featured: false,
-    tags: ['PBL', 'Pedagogy Innovation', 'Curriculum Design'],
-  },
-  {
-    id: 'iii-cell',
-    category: 'Institutional',
-    year: '2017',
-    title: 'III Cell In-charge — Innovation & Incubation',
-    body: 'A. P. Shah Institute of Technology, Thane',
-    description: 'Headed the Innovation, Incubation & Ideation (III) Cell — mentoring student entrepreneurs, organising idea competitions, and connecting promising projects with industry incubators.',
-    icon: FlaskConical,
-    color: '#5C3A1A',
-    featured: false,
-    tags: ['Innovation', 'Incubation', 'Student Entrepreneurship'],
-  },
-  {
-    id: 'hod',
-    category: 'Institutional',
-    year: '2013',
-    title: 'Head of Department — CSE',
-    body: "Bharati Vidyapeeth's College of Engineering, Kolhapur",
-    description: "Served as Head of the Computer Science & Engineering Department from 2013–2017. Oversaw faculty management, curriculum design, timetabling, departmental budgeting, and student welfare across 4 batches.",
-    icon: Building2,
-    color: '#0D1F3C',
-    featured: false,
-    tags: ['Leadership', 'HOD', 'Department Management'],
-  },
-  {
-    id: 'uom-approval-1',
-    category: 'Professional',
-    year: '2008',
-    title: 'Appointed Lecturer — University of Mumbai',
-    body: 'University of Mumbai',
-    description: 'Appointment approved by the University of Mumbai as Lecturer in Computer Engineering Department. Official letter: CONCOL/SA/4532, dated 11 November 2008. First official university appointment.',
-    icon: Award,
-    color: '#1A3560',
-    featured: false,
-    tags: ['University of Mumbai', 'Official Appointment', 'First Approval'],
-  },
-  {
-    id: 'nexus',
-    category: 'Professional',
-    year: '2010',
-    title: 'Technical Coordinator — "NEXUS" National Event',
-    body: 'Parshavanath College of Engineering, Thane',
-    description: 'Organised and technically coordinated "NEXUS" — a National Level Technical Event — managing event planning, participant coordination, faculty involvement, and technical competitions across Computer Engineering domains.',
-    icon: Trophy,
-    color: '#2D5B8A',
-    featured: false,
-    tags: ['Event Management', 'National Level', 'Technical Coordination'],
-  },
-  {
-    id: 'uom-approval-2',
-    category: 'Professional',
-    year: '2018',
-    title: 'Re-Appointed Assistant Professor — University of Mumbai',
-    body: 'University of Mumbai',
-    description: 'Re-approved as Assistant Professor in Computer Engineering by the University of Mumbai. Letter: TAAS(CT)/ICD/2017-18/11257, dated 18 April 2018, following appointment at A. P. Shah Institute of Technology.',
-    icon: Award,
-    color: '#0D1F3C',
-    featured: false,
-    tags: ['University of Mumbai', 'Assistant Professor', 'Reappointment'],
-  },
-]
+// Helper functions
+const catCount = (cat: AwardCategory | 'All', restAwards: AwardItemHydrated[]) =>
+  cat === 'All' ? restAwards.length : restAwards.filter(a => a.category === cat).length
 
-const CATEGORY_COLORS: Record<AwardCategory, { bg: string; border: string; text: string; dot: string }> = {
-  'Academic':               { bg: 'rgba(13,31,60,0.08)',    border: 'rgba(13,31,60,0.18)',    text: '#0D1F3C',  dot: '#0D1F3C' },
-  'Research':               { bg: 'rgba(26,107,72,0.08)',   border: 'rgba(26,107,72,0.22)',   text: '#1A5038',  dot: '#1A6B48' },
-  'Institutional':          { bg: 'rgba(122,85,0,0.08)',    border: 'rgba(122,85,0,0.20)',    text: '#7A5500',  dot: '#B8870A' },
-  'Intellectual Property':  { bg: 'rgba(184,135,10,0.09)',  border: 'rgba(184,135,10,0.24)', text: '#7A5500',  dot: '#B8870A' },
-  'Professional':           { bg: 'rgba(45,91,138,0.08)',   border: 'rgba(45,91,138,0.20)',  text: '#1A3560',  dot: '#2D5B8A' },
-}
-
-const CATEGORIES: AwardCategory[] = ['Academic', 'Intellectual Property', 'Institutional', 'Professional', 'Research']
-
-const featured = AWARDS.find(a => a.featured)!
-const rest = AWARDS.filter(a => !a.featured)
-
-// Years for timeline
-const YEARS = [...new Set(AWARDS.map(a => a.year))].sort((a, b) => Number(b) - Number(a))
-
-// ═════════════════════════════════════════════════════════
 export default function AwardsPage() {
+  const [content, setContent] = useState(() => normalizeAchievementsAwardsContent(STATIC_ACHIEVEMENTS_AWARDS_CONTENT))
+  const [contentSource, setContentSource] = useState<'loading' | 'supabase' | 'backup'>('loading')
   const [activeCategory, setActiveCategory] = useState<AwardCategory | 'All'>('All')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [doc, setDoc] = useState<{ file: string; title: string } | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    let active = true
+
+    const loadContent = async () => {
+      try {
+        const response = await fetch('/api/achievements-awards-content', { cache: 'no-store' })
+        if (!response.ok) {
+          throw new Error(`achievements-awards-content API returned ${response.status}`)
+        }
+
+        const payload = (await response.json()) as ApiState
+        if (!active) {
+          return
+        }
+
+        setContent(normalizeAchievementsAwardsContent(payload.content || STATIC_ACHIEVEMENTS_AWARDS_CONTENT))
+        setContentSource(payload.source || 'backup')
+
+        if (payload.source !== 'supabase' && payload.message) {
+          console.error('[achievements-awards-page] Falling back to static backup:', payload.message)
+        }
+      } catch (error) {
+        if (!active) {
+          return
+        }
+
+        console.error('[achievements-awards-page] Failed loading DB content. Rendering static fallback.', error)
+        setContent(normalizeAchievementsAwardsContent(STATIC_ACHIEVEMENTS_AWARDS_CONTENT))
+        setContentSource('backup')
+      }
+    }
+
+    loadContent()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const awards = useMemo(() => hydrateAchievementsAwardsContent(content).awards, [content])
+  const featuredAward = useMemo(() => awards.find((award) => award.featured) || awards[0], [awards])
+  const restAwards = useMemo(
+    () => awards.filter((award) => award.id !== featuredAward?.id),
+    [awards, featuredAward],
+  )
+
+  const categories = AWARD_CATEGORIES
+  const years = useMemo(
+    () => [...new Set(awards.map((award) => award.year))].sort((a, b) => Number(b) - Number(a)),
+    [awards],
+  )
+  const heroStats = useMemo(() => {
+    const patents = awards.filter(
+      (award) => award.category === 'Intellectual Property' && award.title.toLowerCase().includes('patent'),
+    ).length
+    const copyrights = awards.filter(
+      (award) => award.category === 'Intellectual Property' && award.title.toLowerCase().includes('copyright'),
+    ).length
+    const yearCount = new Set(awards.map((award) => award.year)).size
+
+    return [
+      { n: `${awards.length}`, l: 'Total Honours' },
+      { n: `${patents}`.padStart(2, '0'), l: 'Patents Filed' },
+      { n: `${copyrights}`.padStart(2, '0'), l: 'Copyrights' },
+      { n: `${yearCount}`.padStart(2, '0'), l: 'Years of Record' },
+    ]
+  }, [awards])
+
+  const openDoc = (file: string, title: string) => {
+    setLoaded(false)
+    setDoc({ file, title })
+  }
+
+  const closeDoc = () => setDoc(null)
 
   const filtered = activeCategory === 'All'
-    ? rest
-    : rest.filter(a => a.category === activeCategory)
+    ? restAwards
+    : restAwards.filter(a => a.category === activeCategory)
 
-  const filteredByYear: Record<string, AwardItem[]> = {}
+  const filteredByYear: Record<string, AwardItemHydrated[]> = {}
   filtered.forEach(a => {
     if (!filteredByYear[a.year]) filteredByYear[a.year] = []
     filteredByYear[a.year].push(a)
   })
   const sortedYears = Object.keys(filteredByYear).sort((a, b) => Number(b) - Number(a))
-
-  const catCount = (cat: AwardCategory | 'All') =>
-    cat === 'All' ? rest.length : rest.filter(a => a.category === cat).length
 
   return (
     <>
@@ -309,7 +168,7 @@ export default function AwardsPage() {
           userSelect: 'none', pointerEvents: 'none',
           letterSpacing: '-0.06em',
         }}>
-          {AWARDS.length}
+          {awards.length}
         </div>
 
         <div className="W" style={{ padding: 'clamp(52px, 9vh, 96px) clamp(18px, 5vw, 80px)', position: 'relative', zIndex: 1 }}>
@@ -352,17 +211,17 @@ export default function AwardsPage() {
 
               {/* Inline stat row */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(14px, 3vw, 36px)', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                {[
-                  { n: String(AWARDS.length), l: 'Total Honours' },
-                  { n: '02', l: 'Patents Filed' },
-                  { n: '02', l: 'Copyrights' },
-                  { n: '17', l: 'Years of Record' },
-                ].map((s, i) => (
+                {heroStats.map((s, i) => (
                   <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 + i * 0.07 }}>
                     <p style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 700, color: 'var(--gold-3)', lineHeight: 1 }}>{s.n}</p>
                     <p style={{ fontSize: 11, color: 'rgba(226,232,240,0.45)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 4 }}>{s.l}</p>
                   </motion.div>
                 ))}
+              </div>
+
+              <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)', background: contentSource === 'supabase' ? 'rgba(26,107,72,0.18)' : 'rgba(184,135,10,0.2)', color: contentSource === 'supabase' ? '#8EE0B5' : '#F7D080', fontSize: 11, fontWeight: 700 }}>
+                {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
+                {contentSource === 'supabase' ? 'Live from Supabase' : 'Fallback from Awarddata.ts'}
               </div>
             </motion.div>
 
@@ -373,14 +232,14 @@ export default function AwardsPage() {
               <div style={{ padding: 'clamp(20px, 3vw, 32px)', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(184,135,10,0.25)', borderLeft: '4px solid var(--gold-3)' }}>
                 <Quote size={20} style={{ color: 'var(--gold-3)', opacity: 0.5, marginBottom: 12 }} />
                 <p style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(16px, 1.9vw, 21px)', fontStyle: 'italic', fontWeight: 400, color: '#E8EBF0', lineHeight: 1.55 }}>
-                  "Every recognition is a reflection of the students, colleagues, and institutions that made the work possible."
+                  {content.quote.text}
                 </p>
-                <p style={{ fontSize: 12, color: 'rgba(226,232,240,0.45)', marginTop: 14 }}>— Dr. Sachin B. Takmare</p>
+                <p style={{ fontSize: 12, color: 'rgba(226,232,240,0.45)', marginTop: 14 }}>— {content.quote.author}</p>
               </div>
 
               {/* Category pills */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {CATEGORIES.map(cat => (
+                {categories.map(cat => (
                   <span key={cat} style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11.5, fontWeight: 500, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(226,232,240,0.60)' }}>
                     {cat}
                   </span>
@@ -395,7 +254,6 @@ export default function AwardsPage() {
           FEATURED — PhD as marquee award
       ══════════════════════════════════ */}
       <section style={{ background: 'var(--white)', padding: 'clamp(48px, 8vh, 80px) 0', position: 'relative', overflow: 'hidden' }}>
-        {/* Subtle background */}
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(184,135,10,0.04) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
         <div className="W" style={{ position: 'relative' }}>
@@ -403,7 +261,6 @@ export default function AwardsPage() {
             <p className="lbl" style={{ marginBottom: 0 }}>Pinnacle Achievement</p>
           </motion.div>
 
-          {/* Featured card — full width asymmetric */}
           <motion.div {...up(0.1)}>
             <div style={{
               borderRadius: 18,
@@ -422,7 +279,6 @@ export default function AwardsPage() {
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg, var(--gold), var(--gold-3))' }} />
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '24px 24px', pointerEvents: 'none' }} />
 
-                {/* Icon + category */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, position: 'relative', zIndex: 1 }}>
                   <div style={{ width: 52, height: 52, borderRadius: 12, background: 'rgba(184,135,10,0.15)', border: '1px solid rgba(184,135,10,0.30)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <GraduationCap size={24} style={{ color: 'var(--gold-3)' }} />
@@ -439,29 +295,45 @@ export default function AwardsPage() {
                 </h2>
 
                 <p style={{ fontSize: 14, color: 'rgba(226,232,240,0.65)', lineHeight: 1.78, marginBottom: 24, fontWeight: 300, position: 'relative', zIndex: 1 }}>
-                  {featured.description}
+                  {featuredAward?.description || ''}
                 </p>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, position: 'relative', zIndex: 1 }}>
-                  {featured.tags.map(t => (
+                  {(featuredAward?.tags || []).map(t => (
                     <span key={t} style={{ padding: '3px 10px', borderRadius: 100, fontSize: 11, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(226,232,240,0.65)', fontWeight: 500 }}>{t}</span>
                   ))}
                 </div>
+
+                {(featuredAward?.assetUrl || featuredAward?.socialLink) && (
+                  <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8, position: 'relative', zIndex: 1 }}>
+                    {!!featuredAward?.assetUrl && (
+                      <button
+                        type="button"
+                        onClick={() => openDoc(featuredAward.assetUrl || '', featuredAward.title)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.06)', color: '#E2E8F0', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        <FileCheck size={13} /> View Asset
+                      </button>
+                    )}
+                    {!!featuredAward?.socialLink && (
+                      <a
+                        href={featuredAward.socialLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(184,135,10,0.30)', background: 'rgba(184,135,10,0.12)', color: 'var(--gold-3)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}
+                      >
+                        <ExternalLink size={13} /> Social Link
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Right — details panel */}
               <div style={{ background: 'var(--off)', padding: 'clamp(28px, 4vw, 52px)', display: 'flex', flexDirection: 'column', gap: 0 }}>
                 <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 20 }}>Award Details</p>
 
-                {[
-                  { k: 'Degree',      v: 'Doctor of Philosophy (Ph.D.)' },
-                  { k: 'Institution', v: 'Pacific University, Udaipur, Rajasthan' },
-                  { k: 'Year',        v: '2024 — Awarded' },
-                  { k: 'Thesis',      v: 'Precision Farming: CNN-Based System for Crop and Weed Classification and Density Analysis' },
-                  { k: 'Method',      v: 'Convolutional Neural Networks + YOLO' },
-                  { k: 'Outcome',     v: '2 Int\'l Publications · 1 Utility Patent Filed' },
-                  { k: 'Prior Quals', v: 'M.Tech (70%) · B.E. (69.36%) · HSC (69.67%)' },
-                ].map((r, i, a) => (
+                {content.featured.details.map((r, i, a) => (
                   <div key={i} style={{ display: 'flex', gap: 16, padding: '12px 0', borderBottom: i < a.length - 1 ? '1px solid rgba(15,23,42,0.07)' : 'none' }}>
                     <span style={{ fontSize: 11, color: 'var(--ink-4)', fontWeight: 600, minWidth: 88, flexShrink: 0, paddingTop: 1 }}>{r.k}</span>
                     <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 400, lineHeight: 1.5 }}>{r.v}</span>
@@ -470,7 +342,7 @@ export default function AwardsPage() {
 
                 <div style={{ marginTop: 24 }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 16 }}>
-                    {['Research', 'AI / ML', 'Deep Learning', 'Computer Vision', 'Agriculture'].map(t => (
+                    {content.featured.tags.map(t => (
                       <span key={t} className="tag" style={{ fontSize: 10.5 }}>{t}</span>
                     ))}
                   </div>
@@ -495,7 +367,7 @@ export default function AwardsPage() {
         boxShadow: '0 2px 12px rgba(13,31,60,0.05)',
       }}>
         <div className="W" style={{ padding: '0 clamp(18px, 5vw, 80px)', display: 'flex', gap: 0, overflowX: 'auto' }}>
-          {(['All', ...CATEGORIES] as (AwardCategory | 'All')[]).map(cat => (
+          {(['All', ...categories] as (AwardCategory | 'All')[]).map(cat => (
             <button key={cat} onClick={() => setActiveCategory(cat)}
               style={{
                 padding: '14px clamp(12px, 2vw, 18px)',
@@ -517,7 +389,7 @@ export default function AwardsPage() {
                 border: `1px solid ${activeCategory === cat ? 'var(--gold-border)' : 'var(--ink-line)'}`,
                 color: activeCategory === cat ? 'var(--gold)' : 'var(--ink-4)',
               }}>
-                {catCount(cat)}
+                {catCount(cat, restAwards)}
               </span>
             </button>
           ))}
@@ -658,6 +530,30 @@ export default function AwardsPage() {
                                         <span key={t} className="tag" style={{ fontSize: 10.5 }}>{t}</span>
                                       ))}
                                     </div>
+
+                                    {(award.assetUrl || award.socialLink) && (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                                        {!!award.assetUrl && (
+                                          <button
+                                            type="button"
+                                            onClick={() => openDoc(award.assetUrl || '', award.title)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--navy-glow)', background: 'var(--navy-pale)', color: 'var(--navy)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+                                          >
+                                            <FileCheck size={13} /> View Asset
+                                          </button>
+                                        )}
+                                        {!!award.socialLink && (
+                                          <a
+                                            href={award.socialLink}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1.5px solid rgba(45,91,138,0.26)', background: 'rgba(45,91,138,0.08)', color: '#2D5B8A', fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}
+                                          >
+                                            <ExternalLink size={13} /> Social Link
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 </motion.div>
                               )}
@@ -705,8 +601,8 @@ export default function AwardsPage() {
               {/* Connecting line */}
               <div style={{ position: 'absolute', top: 20, left: 0, right: 0, height: 1, background: 'rgba(184,135,10,0.25)' }} />
 
-              {YEARS.slice().reverse().map((year, i) => {
-                const yearAwards = AWARDS.filter(a => a.year === year)
+              {years.slice().reverse().map((year, i) => {
+                const yearAwards = awards.filter(a => a.year === year)
                 return (
                   <motion.div
                     key={year}
@@ -769,7 +665,7 @@ export default function AwardsPage() {
       ══════════════════════════════════ */}
       <section style={{ background: 'var(--white)', padding: 'clamp(48px, 8vh, 80px) 0', borderTop: '1px solid var(--ink-line)', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, transparent, var(--gold), transparent)' }} />
-        <div style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', fontFamily: 'Playfair Display, serif', fontWeight: 800, fontSize: 'clamp(80px, 16vw, 200px)', color: 'var(--navy-pale)', lineHeight: 1, userSelect: 'none', pointerEvents: 'none', letterSpacing: '-0.04em' }}>18</div>
+        <div style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', fontFamily: 'Playfair Display, serif', fontWeight: 800, fontSize: 'clamp(80px, 16vw, 200px)', color: 'var(--navy-pale)', lineHeight: 1, userSelect: 'none', pointerEvents: 'none', letterSpacing: '-0.04em' }}>{years.length}</div>
 
         <div className="W" style={{ position: 'relative' }}>
           <motion.div {...up()}>
@@ -782,16 +678,61 @@ export default function AwardsPage() {
               The awards reflect the research. Dive into published papers, patents, and the teaching legacy behind these achievements.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-              <Link href="/research"               className="btn-navy" style={{ padding: '12px 24px', fontSize: 14 }}>Research Papers <ArrowRight size={14} /></Link>
-              <Link href="/research/patents"       className="btn-out"  style={{ padding: '12px 24px', fontSize: 14 }}>Patents & IP</Link>
+              <Link href="/research" className="btn-navy" style={{ padding: '12px 24px', fontSize: 14 }}>Research Papers <ArrowRight size={14} /></Link>
+              <Link href="/research/patents" className="btn-out" style={{ padding: '12px 24px', fontSize: 14 }}>Patents & IP</Link>
               <Link href="/achievements/certificates" className="btn-out" style={{ padding: '12px 24px', fontSize: 14 }}>Certificates</Link>
-              <Link href="/contact"                className="btn-out"  style={{ padding: '12px 24px', fontSize: 14 }}>Contact</Link>
+              <Link href="/contact" className="btn-out" style={{ padding: '12px 24px', fontSize: 14 }}>Contact</Link>
             </div>
           </motion.div>
         </div>
       </section>
 
+      {doc && (
+        <div onClick={closeDoc}
+          style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(5,10,20,0.84)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(12px,3vw,36px)' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'var(--white)', borderRadius: 14, overflow: 'hidden', width: '100%', maxWidth: 860, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}
+          >
+            <div style={{ padding: '14px 20px', background: 'var(--navy)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+              <p style={{ flex: 1, fontFamily: 'Playfair Display,serif', fontSize: 'clamp(13px,1.4vw,16px)', fontWeight: 600, color: '#F0F4F8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</p>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <a href={doc.file} download target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                  style={{ width: 32, height: 32, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(184,135,10,0.15)', border: '1px solid rgba(184,135,10,0.30)', color: 'var(--gold-3)', textDecoration: 'none' }}>
+                  <Download size={13} />
+                </a>
+                <button onClick={closeDoc}
+                  style={{ width: 32, height: 32, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#E2E8F0', cursor: 'pointer' }}>
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', background: '#080D18', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 360, position: 'relative' }}>
+              {!loaded && (
+                <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--gold-3)', animation: 'spin 0.7s linear infinite' }} />
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Loading...</p>
+                </div>
+              )}
+              {/\.(jpg|jpeg|png|webp)$/i.test(doc.file) ? (
+                <img src={doc.file} alt={doc.title} onLoad={() => setLoaded(true)}
+                  style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', display: loaded ? 'block' : 'none', padding: 20 }} />
+              ) : (
+                <iframe src={`${doc.file}#toolbar=1`} onLoad={() => setLoaded(true)}
+                  style={{ width: '100%', minHeight: 500, border: 'none', display: loaded ? 'block' : 'none' }} title={doc.title} />
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
         @media (max-width: 480px) {
           .W { padding-left: 16px !important; padding-right: 16px !important; }
         }

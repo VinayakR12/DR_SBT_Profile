@@ -900,7 +900,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Menu, X, GraduationCap, ChevronRight, ChevronDown,
   Home, User, FlaskConical, Trophy, BookOpen, Mail,
-  Award, Shield, FileText, Star, Briefcase,
+  Award, Shield, FileText, Star, Briefcase, LogIn,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────
@@ -1269,6 +1269,36 @@ export default function Navbar() {
           {/* ── Right controls ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Link
+              href="/admin/login"
+              className="desk-nav"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '7px 14px', borderRadius: 7,
+                background: 'rgba(13,31,60,0.04)',
+                color: 'var(--navy)',
+                fontSize: 12.5, fontWeight: 700,
+                textDecoration: 'none',
+                border: '1px solid var(--ink-line)',
+                whiteSpace: 'nowrap',
+                transition: 'background 0.18s, transform 0.15s, border-color 0.18s',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.background = 'var(--gold-pale)'
+                el.style.borderColor = 'var(--gold-border)'
+                el.style.transform = 'translateY(-1px)'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.background = 'rgba(13,31,60,0.04)'
+                el.style.borderColor = 'var(--ink-line)'
+                el.style.transform = 'translateY(0)'
+              }}
+            >
+              <LogIn size={13} /> Admin Login
+            </Link>
+
+            <Link
               href="/contact"
               className="desk-nav collaborate-btn"
               style={{
@@ -1301,9 +1331,10 @@ export default function Navbar() {
 
             {/* Hamburger */}
             <button
+              type="button"
+              title="Toggle menu"
               onClick={() => setOpen(!open)}
               aria-label="Toggle menu"
-              aria-expanded={open}
               className="mob-btn"
               style={{
                 width: 36, height: 36, borderRadius: 8, cursor: 'pointer',
@@ -1633,23 +1664,40 @@ export default function Navbar() {
 
               {/* Drawer CTA */}
               <div style={{ padding: '10px', borderTop: '1px solid var(--ink-line)', flexShrink: 0 }}>
-                <Link
-                  href="/contact"
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    width: '100%', padding: '11px',
-                    borderRadius: 9,
-                    background: 'var(--navy)', color: '#fff',
-                    fontWeight: 700, fontSize: 13.5,
-                    textDecoration: 'none',
-                    boxShadow: '0 3px 12px var(--navy-glow)',
-                    transition: 'background 0.18s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--gold)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'var(--navy)')}
-                >
-                  <Mail size={14} /> Get In Touch
-                </Link>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <Link
+                    href="/admin/login"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      padding: '11px',
+                      borderRadius: 9,
+                      background: 'rgba(13,31,60,0.04)',
+                      color: 'var(--navy)',
+                      fontWeight: 700, fontSize: 13,
+                      textDecoration: 'none',
+                      border: '1px solid var(--ink-line)',
+                    }}
+                  >
+                    <LogIn size={14} /> Admin
+                  </Link>
+                  <Link
+                    href="/contact"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      padding: '11px',
+                      borderRadius: 9,
+                      background: 'var(--navy)', color: '#fff',
+                      fontWeight: 700, fontSize: 13,
+                      textDecoration: 'none',
+                      boxShadow: '0 3px 12px var(--navy-glow)',
+                      transition: 'background 0.18s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--gold)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'var(--navy)')}
+                  >
+                    <Mail size={14} /> Get In Touch
+                  </Link>
+                </div>
               </div>
             </motion.aside>
           </>
