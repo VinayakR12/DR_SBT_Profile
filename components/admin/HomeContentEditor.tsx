@@ -285,6 +285,33 @@ export default function HomeContentEditor() {
     await saveSectionWithValue(sectionKey, content[sectionKey])
   }
 
+  const confirmAndSaveSectionValue = async <K extends HomeSectionKey>(sectionKey: K, nextValue: HomeContentRaw[K], title: string, text: string) => {
+    if (savingSection) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title,
+      text,
+      showCancelButton: true,
+      confirmButtonText: 'Delete row',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
+    setSection(sectionKey, nextValue)
+    await saveSectionWithValue(sectionKey, nextValue)
+  }
+
   const deleteSection = async <K extends HomeSectionKey>(sectionKey: K) => {
     const Swal = (await import('sweetalert2')).default
     const confirm = await Swal.fire({
@@ -399,6 +426,24 @@ export default function HomeContentEditor() {
       return
     }
 
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Remove uploaded profile image?',
+      text: 'The image will be removed from Supabase Storage and the page will fall back to the bundled image.',
+      showCancelButton: true,
+      confirmButtonText: 'Remove image',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
     setUploadingImage(true)
     try {
       const response = await fetch('/api/home-content/profile-image', {
@@ -427,17 +472,22 @@ export default function HomeContentEditor() {
 
   return (
     <div className="home-editor-shell">
-      <div className="home-editor-banner">
-        <div>
+<div
+  className="home-editor-banner"
+  style={{
+    background: "linear-gradient(135deg, rgba(13,31,60,0.95), rgba(22,51,94,0.96))"
+  }}
+>
+      <div>
           <p className="home-editor-banner-kicker">Home Content Manager</p>
           <h3>Supabase first, backup file always available</h3>
           <p>{statusMessage}</p>
         </div>
 
         <div className="home-editor-banner-actions">
-          <div className={`home-editor-source home-editor-source-${source}`}>
+          <div className={`home-editor-source home-editor-source-${source} bg-amber-100` }>
             {source === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
-            <span>{source === 'supabase' ? 'Supabase live' : 'Backup active'}</span>
+            <span className='text-blue-200'>{source === 'supabase' ? 'Supabase live' : 'Backup active'}</span>
           </div>
           <button type="button" className="home-editor-btn home-editor-btn-primary" onClick={syncAll} disabled={savingSection === 'all'}>
             <CopyPlus size={14} /> {savingSection === 'all' ? 'Uploading...' : 'Sync all sections'}
@@ -526,18 +576,18 @@ export default function HomeContentEditor() {
                 <div className="home-editor-form-grid">
                   <div className="home-editor-span-2">
                     <FieldLabel>Profile image (Supabase Storage)</FieldLabel>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div className="home-editor-image-row">
                       <img
                         src={content.idCard.imageUrl || '/Profile_pic/SBT_Profile.jpg'}
                         alt="Profile preview"
-                        style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(13,31,60,0.12)' }}
+                        className="home-editor-image-preview"
                       />
-                      <label className="home-editor-btn home-editor-btn-secondary" style={{ cursor: uploadingImage ? 'not-allowed' : 'pointer', opacity: uploadingImage ? 0.65 : 1 }}>
+                      <label className={`home-editor-btn home-editor-btn-secondary home-editor-upload-label ${uploadingImage ? 'home-editor-upload-label-disabled' : ''}`}>
                         {uploadingImage ? 'Uploading...' : 'Upload image'}
                         <input
                           type="file"
                           accept="image/png,image/jpeg,image/webp"
-                          style={{ display: 'none' }}
+                          className="home-editor-hidden-file"
                           disabled={uploadingImage || Boolean(savingSection)}
                           onChange={async (event) => {
                             const file = event.target.files?.[0]
@@ -610,7 +660,7 @@ export default function HomeContentEditor() {
                         <FieldLabel>Subtext</FieldLabel>
                         <TextField value={stat.s} onChange={(value) => updateSection('stats', (items) => items.map((item, itemIndex) => (itemIndex === index ? { ...item, s: value } : item)))} />
                       </div>
-                      <button type="button" className="home-editor-icon-btn" aria-label="Remove stat row" title="Remove stat row" onClick={() => updateSection('stats', (items) => items.filter((_, itemIndex) => itemIndex !== index))}>
+                      <button type="button" className="home-editor-icon-btn" aria-label="Remove stat row" title="Remove stat row" onClick={() => void confirmAndSaveSectionValue('stats', content.stats.filter((_, itemIndex) => itemIndex !== index), 'Delete this stat row?', 'This will remove the row from Supabase and every page that reads from it.') }>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -696,7 +746,7 @@ export default function HomeContentEditor() {
                         <FieldLabel>Description</FieldLabel>
                         <TextArea value={credential.d} onChange={(value) => updateSection('credentials', (items) => items.map((item, itemIndex) => (itemIndex === index ? { ...item, d: value } : item)))} rows={3} />
                       </div>
-                      <button type="button" className="home-editor-icon-btn" aria-label="Remove credential row" title="Remove credential row" onClick={() => updateSection('credentials', (items) => items.filter((_, itemIndex) => itemIndex !== index))}>
+                      <button type="button" className="home-editor-icon-btn" aria-label="Remove credential row" title="Remove credential row" onClick={() => void confirmAndSaveSectionValue('credentials', content.credentials.filter((_, itemIndex) => itemIndex !== index), 'Delete this credential row?', 'This will remove the credential from Supabase and all public pages.') }>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -736,7 +786,7 @@ export default function HomeContentEditor() {
                         <FieldLabel>Support text</FieldLabel>
                         <TextArea value={item.sub} onChange={(value) => updateSection('expertise', (items) => items.map((entry, itemIndex) => (itemIndex === index ? { ...entry, sub: value } : entry)))} rows={3} />
                       </div>
-                      <button type="button" className="home-editor-icon-btn home-editor-icon-btn-right" aria-label="Remove expertise row" title="Remove expertise row" onClick={() => updateSection('expertise', (items) => items.filter((_, itemIndex) => itemIndex !== index))}>
+                      <button type="button" className="home-editor-icon-btn home-editor-icon-btn-right" aria-label="Remove expertise row" title="Remove expertise row" onClick={() => void confirmAndSaveSectionValue('expertise', content.expertise.filter((_, itemIndex) => itemIndex !== index), 'Delete this expertise row?', 'This will remove the expertise card from Supabase and every page that uses it.') }>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -768,7 +818,7 @@ export default function HomeContentEditor() {
                         <FieldLabel>Info</FieldLabel>
                         <TextArea value={item.info} onChange={(value) => updateSection('publications', (items) => items.map((entry, itemIndex) => (itemIndex === index ? { ...entry, info: value } : entry)))} rows={3} />
                       </div>
-                      <button type="button" className="home-editor-icon-btn" aria-label="Remove publication row" title="Remove publication row" onClick={() => updateSection('publications', (items) => items.filter((_, itemIndex) => itemIndex !== index))}>
+                      <button type="button" className="home-editor-icon-btn" aria-label="Remove publication row" title="Remove publication row" onClick={() => void confirmAndSaveSectionValue('publications', content.publications.filter((_, itemIndex) => itemIndex !== index), 'Delete this publication row?', 'This will remove the publication from Supabase and all public pages.') }>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -808,7 +858,7 @@ export default function HomeContentEditor() {
                         <FieldLabel>Link</FieldLabel>
                         <TextField value={item.href} onChange={(value) => updateSection('ipItems', (items) => items.map((entry, itemIndex) => (itemIndex === index ? { ...entry, href: value } : entry)))} />
                       </div>
-                      <button type="button" className="home-editor-icon-btn home-editor-icon-btn-right" aria-label="Remove IP row" title="Remove IP row" onClick={() => updateSection('ipItems', (items) => items.filter((_, itemIndex) => itemIndex !== index))}>
+                      <button type="button" className="home-editor-icon-btn home-editor-icon-btn-right" aria-label="Remove IP row" title="Remove IP row" onClick={() => void confirmAndSaveSectionValue('ipItems', content.ipItems.filter((_, itemIndex) => itemIndex !== index), 'Delete this IP row?', 'This will remove the IP item from Supabase and all public pages.') }>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -855,7 +905,7 @@ export default function HomeContentEditor() {
                             <FieldLabel>Label</FieldLabel>
                             <TextField value={item.l} onChange={(value) => updateSection('teaching', (section) => ({ ...section, stats: section.stats.map((entry, itemIndex) => (itemIndex === index ? { ...entry, l: value } : entry)) }))} />
                           </div>
-                          <button type="button" className="home-editor-icon-btn home-editor-icon-btn-right" aria-label="Remove teaching stat row" title="Remove teaching stat row" onClick={() => updateSection('teaching', (section) => ({ ...section, stats: section.stats.filter((_, itemIndex) => itemIndex !== index) }))}>
+                          <button type="button" className="home-editor-icon-btn home-editor-icon-btn-right" aria-label="Remove teaching stat row" title="Remove teaching stat row" onClick={() => void confirmAndSaveSectionValue('teaching', { ...content.teaching, stats: content.teaching.stats.filter((_, itemIndex) => itemIndex !== index) }, 'Delete this teaching stat row?', 'This will remove the stat from Supabase and every page that uses it.') }>
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -936,10 +986,11 @@ export default function HomeContentEditor() {
         .home-editor-section {
           border-radius: 18px;
           border: 1px solid var(--ink-line);
-          background: #fff;
+       
           box-shadow: 0 12px 30px rgba(13,31,60,0.08);
         }
-
+        #home{
+        background: linear-gradient(180deg, #fff 0%, #f9fbff 100%);}
         .home-editor-banner {
           padding: 16px 18px;
           display: flex;
@@ -1105,6 +1156,35 @@ export default function HomeContentEditor() {
         .home-editor-stack {
           display: grid;
           gap: 10px;
+        }
+
+        .home-editor-image-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .home-editor-image-preview {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 1px solid rgba(13,31,60,0.12);
+        }
+
+        .home-editor-upload-label {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .home-editor-upload-label-disabled {
+          cursor: not-allowed;
+          opacity: 0.65;
+        }
+
+        .home-editor-hidden-file {
+          display: none;
         }
 
         .home-editor-repeat-row,

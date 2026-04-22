@@ -39,11 +39,11 @@ const parseContent = (value: unknown): Partial<TeachingContentRaw> | null => {
   return null
 }
 
-const readRemote = async (): Promise<Partial<TeachingContentRaw>> => {
+const readRemote = async (): Promise<{ found: boolean; data: Partial<TeachingContentRaw> }> => {
   const client = createSupabaseWriteClient() ?? createSupabaseReadClient()
   if (!client) {
     console.error('[teaching] Supabase client is not configured. Falling back to static content.')
-    return {}
+    return { found: false, data: {} }
   }
 
   const { data, error } = await client
@@ -56,10 +56,11 @@ const readRemote = async (): Promise<Partial<TeachingContentRaw>> => {
     if (error) {
       console.error('[teaching] Failed reading content from Supabase:', error.message)
     }
-    return {}
+    return { found: false, data: {} }
   }
 
-  return parseContent((data as { content?: unknown }).content) || {}
+  const parsed = parseContent((data as { content?: unknown }).content) || {}
+  return { found: true, data: parsed }
 }
 
 const upsertContent = async (content: TeachingContentRaw) => {
@@ -88,13 +89,34 @@ const upsertContent = async (content: TeachingContentRaw) => {
 export async function GET() {
   try {
     const remote = await readRemote()
-    const hasRemote = Object.keys(remote).length > 0
+    if (remote.found) {
+      return NextResponse.json({
+        ok: true,
+        source: 'supabase',
+        content: normalizeTeachingContent(remote.data),
+        supabase: getSupabaseStatus(),
+      })
+    }
+
+    // Auto-seed backup teaching content into Supabase so DB remains the primary source.
+    const backupSnapshot = getTeachingSnapshot()
+    const seedResult = await upsertContent(backupSnapshot)
+    if (seedResult.ok) {
+      return NextResponse.json({
+        ok: true,
+        source: 'supabase',
+        content: backupSnapshot,
+        supabase: getSupabaseStatus(),
+        message: 'Teaching content was seeded from backup into Supabase.',
+      })
+    }
 
     return NextResponse.json({
       ok: true,
-      source: hasRemote ? 'supabase' : 'backup',
-      content: normalizeTeachingContent(remote),
+      source: 'backup',
+      content: STATIC_TEACHING_CONTENT,
       supabase: getSupabaseStatus(),
+      message: seedResult.message || 'Supabase is unavailable. Rendering backup teaching content.',
     })
   } catch (error) {
     console.error('[teaching] GET failed, using static fallback:', error)
@@ -121,7 +143,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, message: 'Section content is required.' }, { status: 400 })
     }
 
-    const current = normalizeTeachingContent(await readRemote())
+    const remote = await readRemote()
+    let current = normalizeTeachingContent(STATIC_TEACHING_CONTENT)
+    if (remote.found) {
+      current = normalizeTeachingContent(remote.data)
+    }
+
     const next = normalizeTeachingContent({
       ...current,
       [body.sectionKey]: sectionValue,

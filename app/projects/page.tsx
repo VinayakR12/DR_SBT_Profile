@@ -178,7 +178,7 @@ export default function ProjectsPage() {
     }}
   >
     {hasLiveData ? <Database size={13} /> : <CloudOff size={13} />}
-    {hasLiveData ? 'Live rendering' : 'Backup rendering'}
+    {hasLiveData ? 'Live' : 'Backup'}
   </div>
 
   {/* Main Wrapper */}
@@ -361,16 +361,16 @@ export default function ProjectsPage() {
   </div>
 
   {/* Content Source Indicator & Notice */}
-  <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-line)', padding: '16px clamp(18px, 5vw, 80px)' }}>
+  {/* <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-line)', padding: '16px clamp(18px, 5vw, 80px)' }}>
     <div className="W" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {contentSource === 'supabase' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#059669', fontWeight: 600 }}>
-            <Database size={14} /> Live from Supabase
+            <Database size={14} /> Live
           </div>
         ) : contentSource === 'backup' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#D97706', fontWeight: 600 }}>
-            <CloudOff size={14} /> Backup content active
+            <CloudOff size={14} /> Backup
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6B7280', fontWeight: 600 }}>
@@ -383,8 +383,8 @@ export default function ProjectsPage() {
           {contentNotice}
         </p>
       )}
-    </div>
-  </div>
+    </div> */}
+  {/* </div> */}
 </section>
 
       {/* ── TAB BAR ── */}

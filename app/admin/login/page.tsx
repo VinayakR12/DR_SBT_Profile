@@ -3,475 +3,516 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight,
-  CircleUserRound,
   Eye,
   EyeOff,
   KeyRound,
+  Mail,
   ShieldCheck,
-  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Lock,
+  LayoutDashboard,
+  Users,
+  FileText,
+  BarChart3,
 } from 'lucide-react'
 
-type Banner = {
-  type: 'success' | 'error' | 'info'
-  text: string
-}
+type Banner = { type: 'success' | 'error' | 'info'; text: string }
+
+const FEATURES = [
+  { icon: LayoutDashboard, label: 'Dashboard Overview',  desc: 'Analytics & key metrics at a glance' },
+   { icon: FileText,        label: 'Content Control',     desc: 'Pages, posts & media assets' },
+  { icon: BarChart3,       label: 'Reports & Insights',  desc: 'Performance data & activity logs' },
+]
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('Admin@gmail.com')
-  const [password, setPassword] = useState('admin@123')
+  const [email,        setEmail]        = useState('')
+  const [password,     setPassword]     = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [banner, setBanner] = useState<Banner | null>({
-    type: 'info',
-    text: 'Use your admin credentials to access the control center.',
-  })
+  const [loading,      setLoading]      = useState(false)
+  const [banner,       setBanner]       = useState<Banner | null>(null)
+  const [focused,      setFocused]      = useState<string | null>(null)
 
-  const canSubmit = useMemo(() => email.trim().length > 5 && password.trim().length > 5, [email, password])
+  const canSubmit = useMemo(
+    () => email.trim().length > 5 && password.trim().length > 5,
+    [email, password]
+  )
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!canSubmit || loading) {
-      return
-    }
-
+    if (!canSubmit || loading) return
     setLoading(true)
     setBanner(null)
-
     try {
-      const res = await fetch('/api/admin/login', {
+      const res  = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-
       const data = (await res.json()) as { ok?: boolean; message?: string }
-
       if (!res.ok || !data.ok) {
-        setBanner({
-          type: 'error',
-          text: data.message || 'Login failed. Please verify your credentials.',
-        })
+        setBanner({ type: 'error', text: data.message || 'Invalid credentials. Please try again.' })
         return
       }
-
-      setBanner({ type: 'success', text: 'Welcome back. Redirecting to dashboard...' })
-      setTimeout(() => {
-        router.push('/admin')
-        router.refresh()
-      }, 800)
+      setBanner({ type: 'success', text: 'Authentication successful. Redirecting to dashboard…' })
+      setTimeout(() => { router.push('/admin'); router.refresh() }, 1000)
     } catch {
-      setBanner({
-        type: 'error',
-        text: 'Server error while logging in. Please try again.',
-      })
+      setBanner({ type: 'error', text: 'Connection error. Please try again.' })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="admin-login-page">
-      <div className="admin-login-bg-orb admin-login-bg-orb-a" />
-      <div className="admin-login-bg-orb admin-login-bg-orb-b" />
+    <div className="alp-root">
+      <div className="alp-texture" />
+      <div className="alp-topbar" />
 
-      <div className="W admin-login-wrap">
-        <motion.section
-          className="admin-login-hero"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      <div className="alp-wrap">
+
+        {/* ── Left info panel ── */}
+        <motion.aside
+          className="alp-panel"
+          initial={{ opacity: 0, x: -18 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="admin-login-badge">
-            <ShieldCheck size={30} color="var(--gold-3)" />
+          <div className="alp-panel-glow" />
+
+          <div className="alp-shield-badge">
+            <ShieldCheck size={24} strokeWidth={1.6} />
           </div>
-          <p className="admin-login-kicker">Corporate Admin Console</p>
-          <h1 className="admin-login-title">Secure access for authenticated administrators.</h1>
-          <p className="admin-login-copy">
-            This panel now validates against configured admin credentials and supports Supabase authentication.
+
+          <p className="alp-panel-kicker">Admin Control Center</p>
+          <h1 className="alp-panel-title">Secure Portal Access</h1>
+          <p className="alp-panel-body">
+            This console is restricted to authorised administrators only. Your session is encrypted and scoped to admin routes.
           </p>
 
-          <div className="admin-login-points">
-            <div className="admin-login-point">
-              <Sparkles size={14} />
-              <span>Supabase-powered login handshake</span>
-            </div>
-            <div className="admin-login-point">
-              <Sparkles size={14} />
-              <span>Session-protected dashboard routes</span>
-            </div>
-            <div className="admin-login-point">
-              <Sparkles size={14} />
-              <span>Premium micro-interactions and status alerts</span>
-            </div>
-          </div>
-        </motion.section>
+          <div className="alp-rule" />
 
-        <motion.section
-          className="admin-login-card"
+          <p className="alp-feat-heading">What you can manage</p>
+          <ul className="alp-feats">
+            {FEATURES.map(({ icon: Icon, label, desc }) => (
+              <li key={label} className="alp-feat">
+                <div className="alp-feat-icon">
+                  <Icon size={13} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <p className="alp-feat-label">{label}</p>
+                  <p className="alp-feat-desc">{desc}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          
+        </motion.aside>
+
+        {/* ── Right login card ── */}
+        <motion.main
+          className="alp-card"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="admin-login-head">
-            <p className="admin-login-flag">Welcome back</p>
-            <h2>Admin Login</h2>
-            <p>Enter your credentials to continue to the dashboard.</p>
-          </div>
+          <div className="alp-card-topbar" />
 
-          {banner && (
-            <div className={`admin-login-banner admin-login-banner-${banner.type}`}>
-              {banner.text}
+          <div className="alp-card-body">
+            <div className="alp-card-head">
+              <p className="alp-card-kicker">Welcome back</p>
+              <h2 className="alp-card-title">Administrator Login</h2>
+              <p className="alp-card-sub">Enter your credentials to access the control panel.</p>
             </div>
-          )}
 
-          <form className="admin-login-form" onSubmit={handleSubmit}>
-            <label className="admin-login-field">
-              <span>Email</span>
-              <div className="admin-login-input-wrap">
-                <CircleUserRound size={16} className="admin-login-icon" />
-                <input
-                  type="email"
-                  name="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Admin@gmail.com"
-                  autoComplete="email"
-                  required
-                />
-              </div>
-            </label>
-
-            <label className="admin-login-field">
-              <span>Password</span>
-              <div className="admin-login-input-wrap">
-                <KeyRound size={16} className="admin-login-icon" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="admin@123"
-                  autoComplete="current-password"
-                  required
-                />
-                <button
-                  type="button"
-                  aria-label="Toggle password visibility"
-                  className="admin-login-eye"
-                  onClick={() => setShowPassword((s) => !s)}
+            <AnimatePresence mode="wait">
+              {banner && (
+                <motion.div
+                  key={banner.text}
+                  className={`alp-banner alp-banner-${banner.type}`}
+                  initial={{ opacity: 0, y: -6, height: 0, marginBottom: 0 }}
+                  animate={{ opacity: 1, y: 0,  height: 'auto', marginBottom: 20 }}
+                  exit={{    opacity: 0,         height: 0,       marginBottom: 0  }}
+                  transition={{ duration: 0.22 }}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                  {banner.type === 'success'
+                    ? <CheckCircle2 size={14} strokeWidth={2} className="alp-banner-ico" />
+                    : <AlertCircle  size={14} strokeWidth={2} className="alp-banner-ico" />
+                  }
+                  <span>{banner.text}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <form className="alp-form" onSubmit={handleSubmit} noValidate>
+
+              <div className="alp-field">
+                <label htmlFor="alp-email" className="alp-label">Email Address</label>
+                <div className={`alp-inp-wrap ${focused === 'email' ? 'alp-inp-focus' : ''}`}>
+                  <Mail size={14} strokeWidth={1.8} className="alp-inp-icon" />
+                  <input
+                    id="alp-email"
+                    type="email"
+                    name="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    onFocus={() => setFocused('email')}
+                    onBlur={() => setFocused(null)}
+                    placeholder="admin@example.com"
+                    autoComplete="email"
+                    required
+                    className="alp-inp"
+                  />
+                </div>
               </div>
-            </label>
 
-            <button type="submit" className="admin-login-submit" disabled={!canSubmit || loading}>
-              {loading ? 'Signing in...' : 'Enter Dashboard'} <ArrowRight size={16} />
-            </button>
+              <div className="alp-field">
+                <label htmlFor="alp-pass" className="alp-label">Password</label>
+                <div className={`alp-inp-wrap ${focused === 'pass' ? 'alp-inp-focus' : ''}`}>
+                  <KeyRound size={14} strokeWidth={1.8} className="alp-inp-icon" />
+                  <input
+                    id="alp-pass"
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onFocus={() => setFocused('pass')}
+                    onBlur={() => setFocused(null)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                    className="alp-inp"
+                  />
+                  <button
+                    type="button"
+                    className="alp-eye"
+                    aria-label="Toggle password visibility"
+                    onClick={() => setShowPassword(s => !s)}
+                  >
+                    {showPassword
+                      ? <EyeOff size={13} strokeWidth={1.8} />
+                      : <Eye    size={13} strokeWidth={1.8} />
+                    }
+                  </button>
+                </div>
+              </div>
 
-            <p className="admin-login-note">
-              Your session is protected and restricted to admin routes.
-            </p>
-          </form>
+              <button
+                type="submit"
+                className="alp-btn"
+                disabled={!canSubmit || loading}
+                aria-busy={loading}
+              >
+                {loading ? (
+                  <><span className="alp-spin" /><span>Authenticating…</span></>
+                ) : (
+                  <><span>Access Dashboard</span><ArrowRight size={15} strokeWidth={2.2} /></>
+                )}
+              </button>
 
-          <div className="admin-login-footer">
-            <Link href="/" className="admin-login-return">
-              Return to website
-            </Link>
+            </form>
+
+           <div className="alp-trust">
+  <span className="alp-trust-dot" /><span>Secure Connection</span>
+  <span className="alp-trust-sep"> · </span>
+  <span className="alp-trust-dot" /><span>Authenticated User Access</span>
+  <span className="alp-trust-sep"> · </span>
+  <span className="alp-trust-dot" /><span>Encrypted Session</span>
+</div>
           </div>
-        </motion.section>
+
+         
+        </motion.main>
+
       </div>
 
       <style>{`
-        .admin-login-page {
-          min-height: calc(100vh - var(--nav-h));
-          padding: 92px 20px 72px;
-          position: relative;
-          overflow: hidden;
-          background:
-            radial-gradient(circle at 12% 18%, rgba(184,135,10,0.15), transparent 34%),
-            radial-gradient(circle at 86% 0%, rgba(13,31,60,0.10), transparent 30%),
-            linear-gradient(180deg, #F7FAFF 0%, #FFFFFF 56%, #FFFDF8 100%);
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+
+        .alp-root {
+          margin-top: 50px;
+          display: flex; align-items: center; justify-content: center;
+          padding: 48px 20px;
+          background: #F8F6F1;
+          position: relative; overflow: hidden;
+          font-family: 'Inter', sans-serif;
         }
 
-        .admin-login-bg-orb {
-          position: absolute;
-          border-radius: 999px;
-          filter: blur(14px);
-          pointer-events: none;
+        /* Subtle woven texture */
+        .alp-texture {
+        margin: 0; padding: 0;
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
+          background-image:
+            repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(180,155,90,0.04) 3px, rgba(180,155,90,0.04) 4px),
+            repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(13,31,60,0.018) 10px, rgba(13,31,60,0.018) 11px);
         }
 
-        .admin-login-bg-orb-a {
-          width: 250px;
-          height: 250px;
-          right: -90px;
-          top: 100px;
-          background: rgba(13,31,60,0.10);
+        /* Gold top accent bar */
+        .alp-topbar {
+          position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 10;
+          background: linear-gradient(90deg, #9A6E00 0%, #C8960A 35%, #E8C040 60%, #B8870A 100%);
         }
 
-        .admin-login-bg-orb-b {
-          width: 290px;
-          height: 290px;
-          left: -120px;
-          bottom: 70px;
-          background: rgba(184,135,10,0.13);
-        }
-
-        .admin-login-wrap {
-          max-width: 1180px;
+        .alp-wrap {
+          position: relative; z-index: 1;
+          width: 100%; max-width: 1040px;
           display: grid;
-          grid-template-columns: minmax(0, 1.05fr) minmax(320px, 470px);
-          gap: 28px;
+          grid-template-columns: minmax(0, 1.1fr) minmax(340px, 430px);
+          gap: 20px;
           align-items: stretch;
-          position: relative;
-          z-index: 1;
         }
 
-        .admin-login-hero {
-          border-radius: 28px;
-          padding: 36px clamp(22px, 4vw, 44px);
-          background: linear-gradient(145deg, #0D1F3C 0%, #16335E 48%, #0D1F3C 100%);
-          color: #fff;
-          box-shadow: 0 20px 54px rgba(13,31,60,0.23);
-          position: relative;
-          overflow: hidden;
-          border: 1px solid rgba(255,255,255,0.07);
+        /* ─── LEFT PANEL ─── */
+        .alp-panel {
+          background: #0D1F3C;
+          border-radius: 20px;
+          padding: 44px 38px;
+          display: flex; flex-direction: column;
+          position: relative; overflow: hidden;
+          box-shadow: 0 24px 72px rgba(13,31,60,0.32), 0 2px 8px rgba(13,31,60,0.14);
         }
 
-        .admin-login-badge {
-          width: 72px;
-          height: 72px;
-          border-radius: 18px;
-          background: rgba(255,255,255,0.10);
-          border: 1px solid rgba(255,255,255,0.16);
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .alp-panel-glow {
+          position: absolute; top: -80px; right: -80px;
+          width: 260px; height: 260px; border-radius: 50%; pointer-events: none;
+          background: radial-gradient(circle, rgba(200,150,10,0.14) 0%, transparent 65%);
+        }
+
+        .alp-shield-badge {
+          width: 50px; height: 50px; border-radius: 13px;
+          background: rgba(200,150,10,0.14);
+          border: 1px solid rgba(200,150,10,0.32);
+          display: flex; align-items: center; justify-content: center;
+          color: #D4A020; margin-bottom: 22px; flex-shrink: 0;
+        }
+
+        .alp-panel-kicker {
+          font-size: 10px; font-weight: 600; letter-spacing: 0.2em;
+          text-transform: uppercase; color: #C8960A; margin-bottom: 10px;
+        }
+
+        .alp-panel-title {
+          font-family: 'Playfair Display', serif;
+          font-size: clamp(26px, 3vw, 38px); line-height: 1.12;
+          color: #fff; margin-bottom: 14px; letter-spacing: -0.02em;
+        }
+
+        .alp-panel-body {
+          font-size: 13.5px; line-height: 1.8; color: rgba(255,255,255,0.48);
+          margin-bottom: 26px;
+        }
+
+        .alp-rule {
+          width: 100%; height: 1px;
+          background: rgba(255,255,255,0.08);
           margin-bottom: 22px;
         }
 
-        .admin-login-kicker {
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          color: rgba(255,255,255,0.74);
+        .alp-feat-heading {
+          font-size: 10px; font-weight: 600; letter-spacing: 0.18em;
+          text-transform: uppercase; color: rgba(255,255,255,0.28);
           margin-bottom: 14px;
         }
 
-        .admin-login-title {
-          font-size: clamp(32px, 4.8vw, 54px);
-          line-height: 1.04;
-          color: #fff;
-          margin-bottom: 16px;
-          max-width: 640px;
+        .alp-feats { list-style: none; padding: 0; margin: 0; display: grid; gap: 13px; flex: 1; }
+
+        .alp-feat { display: flex; align-items: flex-start; gap: 11px; }
+
+        .alp-feat-icon {
+          width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.09);
+          display: flex; align-items: center; justify-content: center;
+          color: rgba(255,255,255,0.5); margin-top: 1px;
         }
 
-        .admin-login-copy {
-          max-width: 590px;
-          font-size: 16px;
-          color: rgba(255,255,255,0.86);
-          line-height: 1.8;
-          margin-bottom: 28px;
+        .alp-feat-label {
+          font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.82);
+          margin: 0 0 2px;
         }
 
-        .admin-login-points {
-          display: grid;
-          gap: 12px;
-          max-width: 560px;
+        .alp-feat-desc {
+          font-size: 11.5px; color: rgba(255,255,255,0.34); margin: 0; line-height: 1.5;
         }
 
-        .admin-login-point {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          color: rgba(255,255,255,0.9);
-          font-size: 14.5px;
+        .alp-panel-foot {
+          margin-top: 26px; padding-top: 16px;
+          border-top: 1px solid rgba(255,255,255,0.07);
+          display: flex; align-items: center; gap: 6px;
+          font-size: 11px; color: rgba(255,255,255,0.22);
+          letter-spacing: 0.04em;
         }
 
-        .admin-login-card {
-          border-radius: 28px;
+        /* ─── RIGHT CARD ─── */
+        .alp-card {
           background: #fff;
-          border: 1px solid var(--ink-line);
-          box-shadow: 0 18px 48px rgba(13,31,60,0.11);
-          padding: 30px clamp(20px, 3.5vw, 34px);
-          backdrop-filter: blur(4px);
+          border-radius: 20px;
+          border: 1px solid rgba(184,135,10,0.16);
+          box-shadow: 0 16px 52px rgba(13,31,60,0.1), 0 1px 4px rgba(13,31,60,0.06);
+          display: flex; flex-direction: column; overflow: hidden;
         }
 
-        .admin-login-head {
-          margin-bottom: 22px;
+        .alp-card-topbar {
+          height: 3px;
+          background: linear-gradient(90deg, #9A6E00, #D4A020 50%, #9A6E00);
         }
 
-        .admin-login-flag {
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--gold);
-          margin-bottom: 10px;
+        .alp-card-body {
+          padding: 34px 34px 24px;
+          flex: 1;
         }
 
-        .admin-login-head h2 {
-          font-size: 28px;
-          margin-bottom: 10px;
+        .alp-card-head { margin-bottom: 22px; }
+
+        .alp-card-kicker {
+          font-size: 10px; font-weight: 600; letter-spacing: 0.2em;
+          text-transform: uppercase; color: #B8870A; margin-bottom: 8px;
         }
 
-        .admin-login-head p {
-          color: var(--ink-3);
-          line-height: 1.7;
+        .alp-card-title {
+          font-family: 'Playfair Display', serif;
+          font-size: 25px; color: #0D1F3C;
+          letter-spacing: -0.02em; margin-bottom: 7px;
         }
 
-        .admin-login-banner {
-          border-radius: 12px;
-          padding: 10px 12px;
-          margin-bottom: 14px;
-          font-size: 13px;
-          font-weight: 600;
+        .alp-card-sub { font-size: 13.5px; color: #6B7280; line-height: 1.65; }
+
+        /* Banner */
+        .alp-banner {
+          display: flex; align-items: flex-start; gap: 9px;
+          border-radius: 10px; padding: 11px 13px;
+          font-size: 13px; font-weight: 500; overflow: hidden; line-height: 1.5;
+        }
+        .alp-banner-ico { flex-shrink: 0; margin-top: 1px; }
+        .alp-banner-success { background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; }
+        .alp-banner-error   { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
+        .alp-banner-info    { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E40AF; }
+
+        /* Form */
+        .alp-form { display: grid; gap: 16px; }
+        .alp-field { display: grid; gap: 7px; }
+
+        .alp-label {
+          font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+          text-transform: uppercase; color: #374151;
         }
 
-        .admin-login-banner-info {
-          background: rgba(13,31,60,0.06);
-          border: 1px solid rgba(13,31,60,0.14);
-          color: var(--navy);
+        .alp-inp-wrap {
+          position: relative; border-radius: 11px;
+          border: 1.5px solid #E5E7EB;
+          background: #FAFAFA;
+          transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
         }
 
-        .admin-login-banner-success {
-          background: rgba(16,129,73,0.10);
-          border: 1px solid rgba(16,129,73,0.2);
-          color: #0E6940;
+        .alp-inp-wrap.alp-inp-focus {
+          border-color: #B8870A; background: #fff;
+          box-shadow: 0 0 0 3px rgba(184,135,10,0.1);
         }
 
-        .admin-login-banner-error {
-          background: rgba(186,35,35,0.08);
-          border: 1px solid rgba(186,35,35,0.2);
-          color: #8A1E1E;
-        }
-
-        .admin-login-form {
-          display: grid;
-          gap: 16px;
-        }
-
-        .admin-login-field {
-          display: grid;
-          gap: 8px;
-        }
-
-        .admin-login-field span {
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: var(--ink-2);
-        }
-
-        .admin-login-input-wrap {
-          position: relative;
-        }
-
-        .admin-login-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
+        .alp-inp-icon {
+          position: absolute; left: 13px; top: 50%;
           transform: translateY(-50%);
-          color: var(--ink-4);
-        }
-
-        .admin-login-input-wrap input {
-          width: 100%;
-          padding: 14px 44px 14px 42px;
-          border-radius: 14px;
-          border: 1px solid var(--ink-line);
-          background: var(--off);
-          color: var(--ink);
-          font-size: 15px;
-          outline: none;
-          font-family: inherit;
-          transition: box-shadow 0.18s, border-color 0.18s, background 0.18s;
-        }
-
-        .admin-login-input-wrap input:focus {
-          border-color: var(--gold-border);
-          box-shadow: 0 0 0 3px rgba(184,135,10,0.12);
-          background: #fff;
-        }
-
-        .admin-login-eye {
-          position: absolute;
-          right: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          border: none;
-          background: transparent;
-          color: var(--ink-4);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-        }
-
-        .admin-login-submit {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          width: 100%;
-          margin-top: 4px;
-          padding: 14px 18px;
-          border-radius: 14px;
-          border: none;
-          background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
-          color: #fff;
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-          box-shadow: 0 14px 30px rgba(13,31,60,0.18);
-          transition: transform 0.16s, box-shadow 0.16s, opacity 0.16s;
-        }
-
-        .admin-login-submit:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 16px 34px rgba(13,31,60,0.2);
-        }
-
-        .admin-login-submit:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .admin-login-note {
-          font-size: 12.5px;
-          color: var(--ink-4);
-          line-height: 1.6;
-          text-align: center;
-        }
-
-        .admin-login-footer {
-          margin-top: 22px;
-          padding-top: 18px;
-          border-top: 1px solid var(--ink-line);
-        }
-
-        .admin-login-return {
-          color: var(--navy);
-          font-weight: 700;
-          text-decoration: none;
+          color: #C4C9D4; pointer-events: none;
           transition: color 0.16s;
         }
 
-        .admin-login-return:hover {
-          color: var(--gold);
+        .alp-inp-wrap.alp-inp-focus .alp-inp-icon { color: #B8870A; }
+
+        .alp-inp {
+          width: 100%; padding: 13px 40px 13px 37px;
+          background: transparent; border: none; outline: none;
+          color: #111827; font-family: 'Inter', sans-serif;
+          font-size: 14px; caret-color: #B8870A;
         }
 
-        @media (max-width: 980px) {
-          .admin-login-wrap {
-            grid-template-columns: 1fr;
-          }
+        .alp-inp::placeholder { color: #D1D5DB; }
+
+        .alp-eye {
+          position: absolute; right: 11px; top: 50%;
+          transform: translateY(-50%);
+          background: none; border: none; cursor: pointer;
+          color: #C4C9D4; display: flex; align-items: center;
+          padding: 4px; transition: color 0.16s;
+        }
+
+        .alp-eye:hover { color: #B8870A; }
+
+        /* Submit */
+        .alp-btn {
+          display: flex; align-items: center; justify-content: center;
+          gap: 8px; width: 100%; margin-top: 4px;
+          padding: 14px 20px; border-radius: 11px; border: none;
+          background: linear-gradient(135deg, #0A1A30 0%, #16335E 100%);
+          color: #fff;
+          font-family: 'Inter', sans-serif;
+          font-size: 14.5px; font-weight: 600; letter-spacing: 0.01em;
+          cursor: pointer;
+          box-shadow: 0 4px 18px rgba(13,31,60,0.28);
+          transition: transform 0.16s, box-shadow 0.18s, opacity 0.18s;
+        }
+
+        .alp-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 26px rgba(13,31,60,0.35);
+        }
+
+        .alp-btn:active:not(:disabled) { transform: translateY(0); }
+        .alp-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+        .alp-spin {
+          width: 14px; height: 14px; flex-shrink: 0;
+          border: 2px solid rgba(255,255,255,0.2);
+          border-top-color: #fff; border-radius: 50%;
+          animation: alp-spin 0.65s linear infinite;
+        }
+
+        @keyframes alp-spin { to { transform: rotate(360deg); } }
+
+        /* Trust row */
+        .alp-trust {
+          display: flex; align-items: center; gap: 6px;
+          justify-content: center; flex-wrap: wrap;
+          margin-top: 14px; font-size: 11.5px; color: #9CA3AF;
+        }
+
+        .alp-trust-dot {
+          width: 5px; height: 5px; border-radius: 50%;
+          background: #22C55E; flex-shrink: 0;
+        }
+
+        .alp-trust-sep { color: #E5E7EB; }
+
+        /* Card footer */
+        .alp-card-foot {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 13px 34px 16px;
+          border-top: 1px solid #F3F4F6;
+        }
+
+        .alp-back {
+          font-size: 13px; font-weight: 500; color: #9CA3AF;
+          text-decoration: none; transition: color 0.16s;
+        }
+
+        .alp-back:hover { color: #0D1F3C; }
+
+        .alp-foot-tag { font-size: 11px; color: #D1D5DB; letter-spacing: 0.06em; }
+
+        /* Responsive */
+        @media (max-width: 840px) {
+          .alp-wrap { grid-template-columns: 1fr; max-width: 460px; }
+          .alp-panel { padding: 30px 26px; }
+          .alp-feats { display: none; }
+        }
+
+        @media (max-width: 480px) {
+          .alp-root { padding: 24px 12px; }
+          .alp-card-body { padding: 26px 20px 20px; }
+          .alp-card-foot { padding: 12px 20px 14px; }
         }
       `}</style>
     </div>

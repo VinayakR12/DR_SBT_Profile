@@ -212,17 +212,7 @@ export default function CertificatesPage() {
               <em>&amp; Achievements</em>
             </h1>
             <p className="hero-sub">{content.hero.subtitle}</p>
-            {contentSource !== 'loading' && (
-              <div className={`content-status content-status-${contentSource}`} role="status" aria-live="polite">
-                {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
-                <span>{contentSource === 'supabase' ? 'Live from Supabase' : 'Fallback from Certificatedata.ts'}</span>
-              </div>
-            )}
-            {contentNotice && contentSource === 'backup' && (
-              <p className="content-notice" role="status" aria-live="polite">
-                {contentNotice}
-              </p>
-            )}
+          
             <div className="hero-stats">
               {heroStats.map((stat, index) => (
                 <div key={index} className="stat">
@@ -231,6 +221,18 @@ export default function CertificatesPage() {
                 </div>
               ))}
             </div>
+            <br/>
+              {contentSource !== 'loading' && (
+              <div className={`content-status content-status-${contentSource}`} role="status" aria-live="polite">
+                {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
+                <span>{contentSource === 'supabase' ? 'Live' : 'Backup'}</span>
+              </div>
+            )}
+            {contentNotice && contentSource === 'backup' && (
+              <p className="content-notice" role="status" aria-live="polite">
+                {contentNotice}
+              </p>
+            )}
           </motion.div>
         </div>
       </section>

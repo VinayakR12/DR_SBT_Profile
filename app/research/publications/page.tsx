@@ -268,12 +268,7 @@ export default function ResearchPage() {
               {HERO.description}
             </p>
 
-            {contentSource !== 'loading' && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)', background: contentSource === 'supabase' ? 'rgba(26,107,72,0.16)' : 'rgba(184,135,10,0.14)', color: contentSource === 'supabase' ? '#8EE0B5' : 'var(--gold-3)', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', marginBottom: 20, width: 'fit-content', marginInline: 'auto' }}>
-                {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
-                <span>{contentSource === 'supabase' ? 'Live from Supabase' : 'Backup content active'}</span>
-              </div>
-            )}
+           
 
             {/* CENTERED STATS - DYNAMIC */}
             <div
@@ -419,8 +414,15 @@ export default function ResearchPage() {
                   Review Articles
                 </p>
               </motion.div>
+               {contentSource !== 'loading' && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)', background: contentSource === 'supabase' ? 'rgba(26,107,72,0.16)' : 'rgba(184,135,10,0.14)', color: contentSource === 'supabase' ? '#8EE0B5' : 'var(--gold-3)', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', width: 'fit-content', marginInline: 'auto' }}>
+                {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
+                <span>{contentSource === 'supabase' ? 'Live' : 'Backup'}</span>
+              </div>
+            )}
             </div>
           </motion.div>
+          
         </div>
       </section>
 

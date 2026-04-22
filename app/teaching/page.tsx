@@ -113,7 +113,7 @@ export default function TeachingPage() {
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 80% at 82% 55%, rgba(184,135,10,0.09) 0%, transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: 'calc(var(--nav-h) + 18px)', right: 'clamp(16px, 4vw, 48px)', zIndex: 2, padding: '8px 12px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.16)', background: hasLiveData ? 'rgba(5,150,105,0.16)' : 'rgba(217,119,6,0.18)', color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
           {hasLiveData ? <Database size={13} /> : <CloudOff size={13} />}
-          {hasLiveData ? 'Live rendering' : 'Backup rendering'}
+          {hasLiveData ? 'Live' : 'Backup'}
         </div>
 
         <div className="W" style={{ padding: 'clamp(52px, 9vh, 96px) clamp(18px, 5vw, 80px)', position: 'relative', zIndex: 1 }}>

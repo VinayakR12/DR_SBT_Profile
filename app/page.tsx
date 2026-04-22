@@ -355,11 +355,15 @@ export default function HomePage() {
       </h2>
     </motion.div>
 
-    <motion.div initial="hidden" whileInView="visible" viewport={{once:true}} variants={ST}
-      style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14}}
+    <motion.div
+      className="expertise-grid"
+      initial="hidden"
+      whileInView="visible"
+      viewport={{once:true}}
+      variants={ST}
     >
       {EXPERTISE.map(ex => (
-        <motion.div key={ex.label} variants={SI}
+        <motion.div key={ex.label} variants={SI} className="expertise-card"
           style={{padding:"clamp(16px,2.2vw,22px)",borderRadius:13,background:"#fff",border:`1.5px solid ${ex.border}`,transition:"transform 0.22s,box-shadow 0.22s,border-color 0.22s",cursor:"default"}}
           onMouseEnter={e=>{ const el=e.currentTarget as HTMLElement; el.style.transform="translateY(-4px)"; el.style.boxShadow="0 12px 40px rgba(13,31,60,0.11)"; el.style.borderColor=`${ex.color}50`; }}
           onMouseLeave={e=>{ const el=e.currentTarget as HTMLElement; el.style.transform=""; el.style.boxShadow=""; el.style.borderColor=ex.border; }}
@@ -520,14 +524,14 @@ export default function HomePage() {
       </motion.div>
 
       <motion.div {...fadeUp(0.1)}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div className="teaching-stats-grid">
           {TEACHING.stats.map((s,i) => (
             <motion.div key={i}
               initial={{opacity:0,scale:0.92}}
               whileInView={{opacity:1,scale:1}}
               viewport={{once:true}}
               transition={{delay:i*0.09,ease:E}}
-              className="card"
+              className="card teaching-stat-card"
               style={{padding:"clamp(18px,3vw,28px)",textAlign:"center"}}
             >
               <div style={{width:42,height:42,borderRadius:10,background:"var(--navy-pale)",border:"1px solid var(--navy-glow)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
@@ -770,22 +774,25 @@ export default function HomePage() {
   position: relative;
 }
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1px;
   background: rgba(255,255,255,.08);
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.08);
+  padding: 1px;
 }
 .stats-cell {
+  flex: 1 1 180px;
+  min-width: 0;
   padding: clamp(20px, 3.2vw, 36px) clamp(10px, 1.5vw, 18px);
   text-align: center;
   background: rgba(13,31,60,.55);
-  border-right: 1px solid rgba(255,255,255,.06);
   transition: background .25s;
   cursor: default;
 }
-.stats-cell:last-child { border-right: none; }
 .stats-cell:hover      { background: rgba(184,135,10,.13); }
 .stats-number  { font-family:"Playfair Display",serif; font-size:clamp(32px,4.5vw,54px); font-weight:700; line-height:1; color:var(--gold-3); margin-bottom:5px; }
 .stats-label   { font-size:clamp(10.5px,1vw,13px); font-weight:600; color:#E2E8F0; margin-bottom:3px; }
@@ -848,22 +855,43 @@ export default function HomePage() {
 /* ── RESPONSIVE ── */
 @media (max-width: 980px) {
   .hero-inner { grid-template-columns: 1fr !important; }
-  .hero-right { order: -1; }
-  .stats-grid { grid-template-columns: repeat(3, 1fr); }
-  .stats-cell:nth-child(3) { border-right: none; }
+  .stats-cell { flex-basis: 220px; }
 }
 @media (max-width: 640px) {
   .hero-inner { padding: 40px 18px 60px; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; border-radius: 8px; }
-  .stats-cell:nth-child(2) { border-right: none; }
-  .stats-cell:nth-child(3) { border-right: 1px solid rgba(255,255,255,.06); }
+  .stats-grid { border-radius: 8px; }
+  .stats-cell { flex-basis: 100%; }
   .W { padding-left: 16px !important; padding-right: 16px !important; }
   .S { padding-top: 52px !important; padding-bottom: 52px !important; }
   .two-col-grid { gap: 40px; }
   .hero-email-link { display: none; }
 }
-@media (max-width: 420px) {
-  .stats-grid { grid-template-columns: 1fr 1fr !important; }
+@media (min-width: 641px) and (max-width: 980px) {
+  .stats-cell { flex-basis: calc(50% - 1px); }
+}
+@media (min-width: 981px) {
+  .stats-cell { flex-basis: calc(20% - 1px); }
+}
+
+.expertise-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+.expertise-card {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+.teaching-stats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+.teaching-stat-card {
+  flex: 1 1 190px;
+  max-width: 290px;
 }
 `}</style>
 

@@ -220,6 +220,33 @@ export default function AboutContentEditor() {
     }
   }
 
+  const confirmAndSaveContent = async (nextContent: AboutContentRaw, title: string, text: string) => {
+    if (saving || savingSection) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title,
+      text,
+      showCancelButton: true,
+      confirmButtonText: 'Delete row',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
+    setContent(nextContent)
+    await saveWithValue(nextContent)
+  }
+
   const saveSection = async (sectionLabel: string) => {
     await saveContent(sectionLabel)
   }
@@ -259,6 +286,24 @@ export default function AboutContentEditor() {
 
   const removeHeroImage = async () => {
     if (uploadingImage || saving) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Remove hero image?',
+      text: 'This will delete the uploaded image from Supabase Storage and restore the backup image.',
+      showCancelButton: true,
+      confirmButtonText: 'Remove image',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
       return
     }
 
@@ -424,7 +469,7 @@ export default function AboutContentEditor() {
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
-                      style={{ display: 'none' }}
+                      className="about-editor-hidden-file"
                       disabled={uploadingImage || saving}
                       onChange={async (event) => {
                         const file = event.target.files?.[0]
@@ -464,7 +509,7 @@ export default function AboutContentEditor() {
                 <div><FieldLabel>Badge</FieldLabel><TextField value={item.badge} onChange={(value) => setEducationItem(index, { ...item, badge: value })} /></div>
                 <div><FieldLabel>Color</FieldLabel><TextField value={item.color} onChange={(value) => setEducationItem(index, { ...item, color: value })} /></div>
                 <div className="about-editor-span-2"><FieldLabel>Note</FieldLabel><TextArea value={item.note} rows={2} onChange={(value) => setEducationItem(index, { ...item, note: value })} /></div>
-                <button type="button" className="about-editor-icon-btn" onClick={() => updateContent((current) => ({ ...current, education: current.education.filter((_, itemIndex) => itemIndex !== index) }))}>
+                <button type="button" className="about-editor-icon-btn" title="Remove education row" aria-label="Remove education row" onClick={() => void confirmAndSaveContent({ ...content, education: content.education.filter((_, itemIndex) => itemIndex !== index) }, 'Delete this education row?', 'This will remove the row from Supabase and every page that uses it.') }>
                   <Trash2 size={14} />
                 </button>
               </RepeatRow>
@@ -484,7 +529,7 @@ export default function AboutContentEditor() {
                 <div><FieldLabel>Label</FieldLabel><TextField value={item.label} onChange={(value) => setResearchAreaItem(index, { ...item, label: value })} /></div>
                 <div><FieldLabel>Color</FieldLabel><TextField value={item.color} onChange={(value) => setResearchAreaItem(index, { ...item, color: value })} /></div>
                 <div><FieldLabel>Background</FieldLabel><TextField value={item.bg} onChange={(value) => setResearchAreaItem(index, { ...item, bg: value })} /></div>
-                <button type="button" className="about-editor-icon-btn" onClick={() => updateContent((current) => ({ ...current, researchAreas: current.researchAreas.filter((_, itemIndex) => itemIndex !== index) }))}>
+                <button type="button" className="about-editor-icon-btn" title="Remove research area" aria-label="Remove research area" onClick={() => void confirmAndSaveContent({ ...content, researchAreas: content.researchAreas.filter((_, itemIndex) => itemIndex !== index) }, 'Delete this research area?', 'This will remove the card from Supabase and every page that uses it.') }>
                   <Trash2 size={14} />
                 </button>
               </RepeatRow>
@@ -503,7 +548,7 @@ export default function AboutContentEditor() {
                 <div><FieldLabel>Year</FieldLabel><TextField value={item.year} onChange={(value) => setMilestoneItem(index, { ...item, year: value })} /></div>
                 <div><FieldLabel>Event</FieldLabel><TextArea value={item.event} rows={2} onChange={(value) => setMilestoneItem(index, { ...item, event: value })} /></div>
                 <div><FieldLabel>Type</FieldLabel><TextField value={item.type} onChange={(value) => setMilestoneItem(index, { ...item, type: value })} /></div>
-                <button type="button" className="about-editor-icon-btn" onClick={() => updateContent((current) => ({ ...current, milestones: current.milestones.filter((_, itemIndex) => itemIndex !== index) }))}>
+                <button type="button" className="about-editor-icon-btn" title="Remove milestone" aria-label="Remove milestone" onClick={() => void confirmAndSaveContent({ ...content, milestones: content.milestones.filter((_, itemIndex) => itemIndex !== index) }, 'Delete this milestone?', 'This will remove the milestone from Supabase and every page that uses it.') }>
                   <Trash2 size={14} />
                 </button>
               </RepeatRow>
@@ -521,7 +566,7 @@ export default function AboutContentEditor() {
               <RepeatRow key={`${item.k}-${index}`}>
                 <div><FieldLabel>Label</FieldLabel><TextField value={item.k} onChange={(value) => setGlanceItem(index, { ...item, k: value })} /></div>
                 <div><FieldLabel>Value</FieldLabel><TextArea value={item.v} rows={2} onChange={(value) => setGlanceItem(index, { ...item, v: value })} /></div>
-                <button type="button" className="about-editor-icon-btn" onClick={() => updateContent((current) => ({ ...current, atAGlance: current.atAGlance.filter((_, itemIndex) => itemIndex !== index) }))}>
+                <button type="button" className="about-editor-icon-btn" title="Remove glance item" aria-label="Remove glance item" onClick={() => void confirmAndSaveContent({ ...content, atAGlance: content.atAGlance.filter((_, itemIndex) => itemIndex !== index) }, 'Delete this at-a-glance item?', 'This will remove the row from Supabase and every page that uses it.') }>
                   <Trash2 size={14} />
                 </button>
               </RepeatRow>
@@ -549,7 +594,7 @@ export default function AboutContentEditor() {
                 {content.bioParagraphs.map((paragraph, index) => (
                   <div key={index} className="about-editor-paragraph-row">
                     <TextArea value={paragraph} rows={4} onChange={(value) => updateContent((current) => ({ ...current, bioParagraphs: current.bioParagraphs.map((item, itemIndex) => (itemIndex === index ? value : item)) }))} />
-                    <button type="button" className="about-editor-icon-btn" onClick={() => updateContent((current) => ({ ...current, bioParagraphs: current.bioParagraphs.filter((_, itemIndex) => itemIndex !== index) }))}>
+                    <button type="button" className="about-editor-icon-btn" title="Remove paragraph" aria-label="Remove paragraph" onClick={() => void confirmAndSaveContent({ ...content, bioParagraphs: content.bioParagraphs.filter((_, itemIndex) => itemIndex !== index) }, 'Delete this paragraph?', 'This will remove the paragraph from Supabase and every page that uses it.') }>
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -606,6 +651,7 @@ export default function AboutContentEditor() {
         .about-editor-image-preview { width: 88px; height: 88px; border-radius: 18px; object-fit: cover; border: 1px solid var(--ink-line); box-shadow: var(--sh1); }
         .about-editor-image-actions { display: flex; gap: 10px; flex-wrap: wrap; }
         .about-editor-upload-label { position: relative; overflow: hidden; }
+        .about-editor-hidden-file { display: none; }
         @media (max-width: 980px) { .about-editor-grid, .about-editor-form-grid { grid-template-columns: 1fr; } .about-editor-span-2 { grid-column: span 1; } .about-editor-repeat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 640px) { .about-editor-banner { flex-direction: column; align-items: flex-start; } .about-editor-repeat-row { grid-template-columns: 1fr; } .about-editor-paragraph-row { grid-template-columns: 1fr; } }
       `}</style>

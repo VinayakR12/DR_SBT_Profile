@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { CloudOff, Database, Plus, RefreshCw, Save, Shield, Sparkles, Trash2, Upload } from 'lucide-react'
+import { ChevronDown, ChevronUp, CloudOff, Database, Plus, RefreshCw, Save, Shield, Sparkles, Trash2, Upload } from 'lucide-react'
 
 import {
   ACHIEVEMENTS_AWARDS_SECTION_META,
@@ -90,17 +90,30 @@ function TextArea({
   )
 }
 
+  function ColorField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+    const colorValue = value?.trim() || '#0D1F3C'
+
+    return (
+      <div className="aw-editor-color-field">
+        <input className="aw-editor-color-swatch" type="color" value={colorValue} aria-label="Color picker" onChange={(event) => onChange(event.target.value)} />
+        <TextField value={value} onChange={onChange} placeholder="#0D1F3C" />
+      </div>
+    )
+  }
+
 function SelectField<T extends string>({
   value,
   options,
   onChange,
+  ariaLabel,
 }: {
   value: T
   options: T[]
   onChange: (value: T) => void
+  ariaLabel?: string
 }) {
   return (
-    <select className="aw-editor-select" value={value} onChange={(event) => onChange(event.target.value as T)}>
+    <select className="aw-editor-select" value={value} onChange={(event) => onChange(event.target.value as T)} aria-label={ariaLabel || 'Select option'}>
       {options.map((option) => (
         <option key={option} value={option}>
           {option}
@@ -118,6 +131,8 @@ export default function AwardsEditor() {
   const [statusMessage, setStatusMessage] = useState<string>('Loading awards content...')
   const [savingSection, setSavingSection] = useState<AchievementsAwardsSectionKey | 'all' | null>(null)
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+  const [expandedSection, setExpandedSection] = useState<AchievementsAwardsSectionKey | null>('quote')
+  const [expandedAwardId, setExpandedAwardId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -213,12 +228,46 @@ export default function AwardsEditor() {
     await saveSection('awards', content.awards)
   }
 
+  const saveAwardItem = async () => {
+    await saveSection('awards', content.awards)
+  }
+
   const saveQuote = async () => {
     await saveSection('quote', content.quote)
   }
 
   const saveFeatured = async () => {
     await saveSection('featured', content.featured)
+  }
+
+  const confirmAndSaveAwardsSection = async <K extends keyof AwardsContentRaw>(sectionKey: K, nextValue: AwardsContentRaw[K], title: string, text: string) => {
+    if (savingSection) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title,
+      text,
+      showCancelButton: true,
+      confirmButtonText: 'Delete row',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
+    setContent((current) => ({
+      ...current,
+      [sectionKey]: nextValue,
+    }))
+    await saveSection(sectionKey, nextValue)
   }
 
   const syncAll = async () => {
@@ -480,12 +529,15 @@ export default function AwardsEditor() {
       </div>
 
       <div className="aw-editor-repeat-card">
-        <div className="aw-editor-section-head">
+        <div className="aw-editor-section-head aw-editor-section-head-accordion">
           <div>
-            <p className="aw-editor-card-kicker">
+            <button type="button" className="aw-editor-section-toggle" onClick={() => setExpandedSection(expandedSection === 'quote' ? null : 'quote')}>
+              <p className="aw-editor-card-kicker">
               <Sparkles size={13} /> {ACHIEVEMENTS_AWARDS_SECTION_META.quote.label}
-            </p>
-            <p className="aw-editor-section-note">{ACHIEVEMENTS_AWARDS_SECTION_META.quote.description}</p>
+              </p>
+              <p className="aw-editor-section-note">{ACHIEVEMENTS_AWARDS_SECTION_META.quote.description}</p>
+              <span className="aw-editor-toggle-icon">{expandedSection === 'quote' ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+            </button>
           </div>
           <button
             type="button"
@@ -497,7 +549,7 @@ export default function AwardsEditor() {
           </button>
         </div>
 
-        <div className="aw-editor-repeat-grid">
+        {expandedSection === 'quote' ? <div className="aw-editor-repeat-grid">
           <div className="aw-editor-span-2">
             <FieldLabel>Quote text</FieldLabel>
             <TextArea
@@ -529,16 +581,19 @@ export default function AwardsEditor() {
               }
             />
           </div>
-        </div>
+        </div> : null}
       </div>
 
       <div className="aw-editor-repeat-card">
-        <div className="aw-editor-section-head">
+        <div className="aw-editor-section-head aw-editor-section-head-accordion">
           <div>
-            <p className="aw-editor-card-kicker">
+            <button type="button" className="aw-editor-section-toggle" onClick={() => setExpandedSection(expandedSection === 'featured' ? null : 'featured')}>
+              <p className="aw-editor-card-kicker">
               <Sparkles size={13} /> {ACHIEVEMENTS_AWARDS_SECTION_META.featured.label}
-            </p>
-            <p className="aw-editor-section-note">{ACHIEVEMENTS_AWARDS_SECTION_META.featured.description}</p>
+              </p>
+              <p className="aw-editor-section-note">{ACHIEVEMENTS_AWARDS_SECTION_META.featured.description}</p>
+              <span className="aw-editor-toggle-icon">{expandedSection === 'featured' ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+            </button>
           </div>
           <button
             type="button"
@@ -550,7 +605,7 @@ export default function AwardsEditor() {
           </button>
         </div>
 
-        <div className="aw-editor-stack">
+        {expandedSection === 'featured' ? <div className="aw-editor-stack">
           {content.featured.details.map((item, index) => (
             <div key={`featured-detail-${index}`} className="aw-editor-repeat-card">
               <div className="aw-editor-repeat-grid">
@@ -566,7 +621,9 @@ export default function AwardsEditor() {
               <button
                 type="button"
                 className="aw-editor-icon-btn"
-                onClick={() => removeFeaturedDetail(index)}
+                title="Remove featured detail"
+                aria-label="Remove featured detail"
+                onClick={() => void confirmAndSaveAwardsSection('featured', { ...content.featured, details: content.featured.details.filter((_, itemIndex) => itemIndex !== index) }, 'Delete this featured detail?', 'This will remove the detail from Supabase and every page that uses it.')}
               >
                 <Trash2 size={14} />
               </button>
@@ -593,7 +650,7 @@ export default function AwardsEditor() {
               }
             />
           </div>
-        </div>
+        </div> : null}
       </div>
 
       <div className="aw-editor-actions-row">
@@ -616,28 +673,48 @@ export default function AwardsEditor() {
       </div>
 
       <div className="aw-editor-stack">
-        <div className="aw-editor-section-head">
+        <div className="aw-editor-section-head aw-editor-section-head-accordion">
           <div>
-            <p className="aw-editor-card-kicker">
+            <button type="button" className="aw-editor-section-toggle" onClick={() => setExpandedSection(expandedSection === 'awards' ? null : 'awards')}>
+              <p className="aw-editor-card-kicker">
               <Sparkles size={13} /> {ACHIEVEMENTS_AWARDS_SECTION_META.awards.label}
-            </p>
-            <p className="aw-editor-section-note">{ACHIEVEMENTS_AWARDS_SECTION_META.awards.description}</p>
+              </p>
+              <p className="aw-editor-section-note">{ACHIEVEMENTS_AWARDS_SECTION_META.awards.description}</p>
+              <span className="aw-editor-toggle-icon">{expandedSection === 'awards' ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+            </button>
           </div>
-          <button
-            type="button"
-            className="aw-editor-btn aw-editor-btn-secondary"
-            onClick={saveAwards}
-            disabled={Boolean(savingSection)}
-          >
-            <Save size={14} /> {savingSection === 'awards' ? 'Saving...' : 'Save awards section'}
-          </button>
         </div>
 
+        {expandedSection === 'awards' ? <>
         {content.awards.map((item, index) => {
           const assetKey = `${item.id}-asset`
+          const isOpen = expandedAwardId === item.id
           return (
             <div key={`${item.id}-${index}`} className="aw-editor-repeat-card">
-              <div className="aw-editor-repeat-grid">
+              <div className="aw-editor-item-head">
+                <button type="button" className="aw-editor-item-toggle" onClick={() => setExpandedAwardId(isOpen ? null : item.id)}>
+                  <div>
+                    <p className="aw-editor-item-title">Award {index + 1}</p>
+                    <p className="aw-editor-item-subtitle">{item.title || 'Untitled award'}</p>
+                  </div>
+                  <span className="aw-editor-toggle-icon">{isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+                </button>
+                <div className="aw-editor-item-actions">
+                  <button
+                    type="button"
+                    className="aw-editor-btn aw-editor-btn-primary"
+                    onClick={saveAwardItem}
+                    disabled={Boolean(savingSection)}
+                  >
+                    <Save size={14} /> {savingSection === 'awards' ? 'Saving...' : 'Save'}
+                  </button>
+                  <button type="button" className="aw-editor-btn aw-editor-btn-danger" onClick={() => void confirmAndSaveAwardsSection('awards', content.awards.filter((_, itemIndex) => itemIndex !== index), 'Delete this award?', 'This will remove the award from Supabase and every page that uses it.') }>
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
+              </div>
+
+              {isOpen ? <div className="aw-editor-repeat-grid">
                 <div>
                   <FieldLabel>Title</FieldLabel>
                   <TextField value={item.title} onChange={(value) => updateAward(index, { ...item, title: value })} />
@@ -651,6 +728,7 @@ export default function AwardsEditor() {
                   <SelectField
                     value={item.category}
                     options={AWARD_CATEGORIES}
+                    ariaLabel="Award category"
                     onChange={(value) => updateAward(index, { ...item, category: value as AwardCategory })}
                   />
                 </div>
@@ -663,6 +741,7 @@ export default function AwardsEditor() {
                   <select
                     className="aw-editor-select"
                     value={item.iconKey}
+                    aria-label="Award icon"
                     onChange={(event) =>
                       updateAward(index, { ...item, iconKey: event.target.value as AwardIconKey })
                     }
@@ -676,13 +755,14 @@ export default function AwardsEditor() {
                 </div>
                 <div>
                   <FieldLabel>Color</FieldLabel>
-                  <TextField value={item.color} onChange={(value) => updateAward(index, { ...item, color: value })} />
+                  <ColorField value={item.color} onChange={(value) => updateAward(index, { ...item, color: value })} />
                 </div>
                 <div>
                   <FieldLabel>Featured</FieldLabel>
                   <SelectField
                     value={item.featured ? 'Yes' : 'No'}
                     options={['Yes', 'No']}
+                    ariaLabel="Featured flag"
                     onChange={(value) => updateAward(index, { ...item, featured: value === 'Yes' })}
                   />
                 </div>
@@ -723,7 +803,8 @@ export default function AwardsEditor() {
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/webp,application/pdf"
-                        style={{ display: 'none' }}
+                        aria-label="Upload award asset"
+                        className="aw-editor-hidden-file"
                         disabled={Boolean(uploadingKey)}
                         onChange={async (event) => {
                           const file = event.target.files?.[0]
@@ -739,25 +820,33 @@ export default function AwardsEditor() {
                       type="button"
                       className="aw-editor-btn aw-editor-btn-danger"
                       disabled={!item.assetUrl || Boolean(uploadingKey)}
-                      onClick={() => removeAsset({ awardId: item.id, assetUrl: item.assetUrl || '' })}
+                      onClick={async () => {
+                        const Swal = (await import('sweetalert2')).default
+                        const confirm = await Swal.fire({
+                          icon: 'warning',
+                          title: 'Remove award asset?',
+                          text: 'The uploaded file will be removed from Supabase Storage.',
+                          showCancelButton: true,
+                          confirmButtonText: 'Remove asset',
+                          cancelButtonText: 'Cancel',
+                          confirmButtonColor: '#B8870A',
+                          cancelButtonColor: '#0D1F3C',
+                          background: '#FFFFFF',
+                          color: '#0F172A',
+                        })
+
+                        if (!confirm.isConfirmed) {
+                          return
+                        }
+
+                        await removeAsset({ awardId: item.id, assetUrl: item.assetUrl || '' })
+                      }}
                     >
                       <Trash2 size={14} /> Remove
                     </button>
                   </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="aw-editor-icon-btn"
-                onClick={() =>
-                  setContent((current) => ({
-                    ...current,
-                    awards: current.awards.filter((_, itemIndex) => itemIndex !== index),
-                  }))
-                }
-              >
-                <Trash2 size={14} />
-              </button>
+              </div> : null}
             </div>
           )
         })}
@@ -769,6 +858,7 @@ export default function AwardsEditor() {
         >
           <Plus size={14} /> Add award
         </button>
+        </> : null}
       </div>
 
       <style>{`
@@ -782,9 +872,9 @@ export default function AwardsEditor() {
         .aw-editor-source-supabase { background: rgba(26,107,72,0.16); color: #8EE0B5; }
         .aw-editor-source-backup { background: rgba(184,135,10,0.16); color: var(--gold-3); }
         .aw-editor-btn { border: none; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
-        .aw-editor-btn-primary { background: var(--gold); color: #0D1F3C; }
+        .aw-editor-btn-primary { background: linear-gradient(135deg, #1A6B48 0%, #0E8E57 100%); color: #fff; border: 1px solid rgba(14,142,87,0.32); }
         .aw-editor-btn-secondary { background: rgba(13,31,60,0.08); color: var(--navy); }
-        .aw-editor-btn-danger { background: rgba(184,135,10,0.1); color: #7A5500; }
+        .aw-editor-btn-danger { background: linear-gradient(135deg, #B42318 0%, #D92D20 100%); color: #fff; border: 1px solid rgba(185,28,28,0.24); }
         .aw-editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .aw-editor-card { background: #fff; border: 1px solid var(--ink-line); border-radius: 18px; padding: 16px; box-shadow: 0 14px 30px rgba(13,31,60,0.08); }
         .aw-editor-card-kicker { display: inline-flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
@@ -797,17 +887,28 @@ export default function AwardsEditor() {
         .aw-editor-actions-row { display: flex; gap: 10px; flex-wrap: wrap; }
         .aw-editor-stack { display: grid; gap: 10px; }
         .aw-editor-section-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .aw-editor-section-head-accordion { align-items: flex-start; }
+        .aw-editor-section-toggle { border: none; background: transparent; text-align: left; padding: 0; cursor: pointer; display: grid; gap: 2px; }
+        .aw-editor-toggle-icon { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--ink-line); display: inline-flex; align-items: center; justify-content: center; color: var(--ink-3); margin-top: 4px; }
         .aw-editor-section-note { color: var(--ink-3); font-size: 12px; line-height: 1.5; }
         .aw-editor-repeat-card { border: 1px solid var(--ink-line); border-radius: 14px; padding: 12px; background: var(--off); display: grid; gap: 10px; }
         .aw-editor-repeat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .aw-editor-item-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        .aw-editor-item-toggle { border: none; background: transparent; text-align: left; padding: 0; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; width: 100%; }
+        .aw-editor-item-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+        .aw-editor-item-subtitle { color: var(--ink); font-weight: 600; font-size: 14px; line-height: 1.5; }
+        .aw-editor-item-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .aw-editor-field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px; }
         .aw-editor-input, .aw-editor-textarea, .aw-editor-select { width: 100%; border: 1px solid var(--ink-line); border-radius: 10px; padding: 11px 12px; background: #fff; color: var(--ink); font-size: 13px; }
         .aw-editor-textarea { resize: vertical; min-height: 44px; }
+        .aw-editor-color-field { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; }
+        .aw-editor-color-swatch { width: 54px; height: 46px; border-radius: 12px; border: 1px solid var(--ink-line); background: #fff; padding: 3px; cursor: pointer; }
         .aw-editor-inline-add, .aw-editor-icon-btn { border: 1px dashed var(--gold-border); background: rgba(184,135,10,0.07); color: var(--gold); border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; justify-content: center; }
         .aw-editor-icon-btn { border-style: solid; width: 40px; height: 40px; padding: 0; }
         .aw-editor-span-2 { grid-column: span 2; }
         .aw-editor-asset-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
         .aw-editor-upload-label { position: relative; overflow: hidden; }
+        .aw-editor-hidden-file { display: none; }
         @media (max-width: 980px) {
           .aw-editor-grid, .aw-editor-repeat-grid { grid-template-columns: 1fr; }
           .aw-editor-span-2 { grid-column: span 1; }
@@ -815,6 +916,7 @@ export default function AwardsEditor() {
         }
         @media (max-width: 640px) {
           .aw-editor-banner { flex-direction: column; align-items: flex-start; }
+          .aw-editor-item-head { flex-direction: column; }
         }
       `}</style>
     </div>

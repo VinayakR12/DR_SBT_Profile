@@ -200,10 +200,7 @@ export default function PatentsPage() {
               {content.hero.description}
             </p>
 
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)', background: contentSource === 'supabase' ? 'rgba(26,107,72,0.18)' : 'rgba(184,135,10,0.2)', color: contentSource === 'supabase' ? '#8EE0B5' : '#F7D080', fontSize: 11, fontWeight: 700, marginBottom: 20 }}>
-              {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
-              {contentSource === 'supabase' ? 'Live from Supabase' : 'Fallback from Patentdata.ts'}
-            </div>
+           
 
             <div
               style={{
@@ -249,6 +246,10 @@ export default function PatentsPage() {
                   </p>
                 </div>
               ))}
+            </div>
+             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)', background: contentSource === 'supabase' ? 'rgba(26,107,72,0.18)' : 'rgba(184,135,10,0.2)', color: contentSource === 'supabase' ? '#8EE0B5' : '#F7D080', fontSize: 11, fontWeight: 700, marginTop:15 }}>
+              {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
+              {contentSource === 'supabase' ? 'Live' : 'Backup'}
             </div>
           </motion.div>
         </div>

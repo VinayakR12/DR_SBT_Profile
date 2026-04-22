@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { Database, Plus, RefreshCw, Save, Upload, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Database, Plus, RefreshCw, Save, Upload, Trash2 } from 'lucide-react'
 
 import {
   PROJECTS_SECTION_META,
@@ -65,6 +65,17 @@ function TextArea({
   return <textarea className="proj-editor-textarea" value={value} placeholder={placeholder} rows={rows} onChange={(event) => onChange(event.target.value)} />
 }
 
+function ColorField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const colorValue = value?.trim() || '#0D1F3C'
+
+  return (
+    <div className="proj-editor-color-field">
+      <input className="proj-editor-color-swatch" type="color" value={colorValue} aria-label="Color picker" onChange={(event) => onChange(event.target.value)} />
+      <TextField value={value} onChange={onChange} placeholder="#0D1F3C" />
+    </div>
+  )
+}
+
 function SelectField<T extends string>({
   value,
   options,
@@ -100,6 +111,8 @@ export default function ProjectsEditor() {
   const [statusMessage, setStatusMessage] = useState<string>('Loading projects content...')
   const [savingSection, setSavingSection] = useState<ProjectsSectionKey | 'all' | null>(null)
   const [uploadingProjectId, setUploadingProjectId] = useState<string | null>(null)
+  const [expandedPGId, setExpandedPGId] = useState<string | null>(null)
+  const [expandedUGId, setExpandedUGId] = useState<string | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -237,6 +250,49 @@ export default function ProjectsEditor() {
     await syncAll()
   }
 
+  const deleteOverride = async () => {
+    if (savingSection) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Delete projects override?',
+      text: 'The page will fall back to the static Projectdata.ts file.',
+      showCancelButton: true,
+      confirmButtonText: 'Delete override',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
+    setSavingSection('all')
+    try {
+      const response = await fetch('/api/projects-content', { method: 'DELETE' })
+      const payload = (await response.json()) as ApiState
+      if (!response.ok || !payload.ok) {
+        await showAlert('error', 'Delete failed', payload.message || 'Unable to remove the projects override.')
+        return
+      }
+
+      setContent(normalizeProjectsContent(payload.content || STATIC_PROJECTS_CONTENT))
+      setSource('backup')
+      setStatusMessage('Projects override removed. Backup content is active.')
+      await showAlert('success', 'Deleted', 'Projects now use the backup file.')
+    } catch {
+      await showAlert('error', 'Delete failed', 'Unable to reach the projects API.')
+    } finally {
+      setSavingSection(null)
+    }
+  }
+
   const updatePGProjectField = <Field extends keyof PGProjectType>(index: number, field: Field, value: PGProjectType[Field]) => {
     setContent((current) => ({
       ...current,
@@ -252,17 +308,43 @@ export default function ProjectsEditor() {
   }
 
   const addPGProject = () => {
+    const nextProject = createDefaultPGProject()
     setContent((current) => ({
       ...current,
-      pgProjects: [createDefaultPGProject(), ...current.pgProjects],
+      pgProjects: [nextProject, ...current.pgProjects],
     }))
+    setExpandedPGId(nextProject.id)
   }
 
-  const removePGProject = (index: number) => {
+  const removePGProject = async (index: number) => {
+    if (savingSection) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Delete project?',
+      text: 'This will remove the project from Supabase and update every page that uses Projects.',
+      showCancelButton: true,
+      confirmButtonText: 'Delete project',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
+    const nextProjects = content.pgProjects.filter((_, itemIndex) => itemIndex !== index)
     setContent((current) => ({
       ...current,
-      pgProjects: current.pgProjects.filter((_, itemIndex) => itemIndex !== index),
+      pgProjects: nextProjects,
     }))
+    await saveSection('pgProjects', nextProjects)
   }
 
   const uploadPGProjectAsset = async (projectId: string, file: File | null) => {
@@ -316,17 +398,43 @@ export default function ProjectsEditor() {
   }
 
   const addUGDomain = () => {
+    const nextDomain = createDefaultUGDomain()
     setContent((current) => ({
       ...current,
-      ugDomains: [createDefaultUGDomain(), ...current.ugDomains],
+      ugDomains: [nextDomain, ...current.ugDomains],
     }))
+    setExpandedUGId(nextDomain.id)
   }
 
-  const removeUGDomain = (index: number) => {
+  const removeUGDomain = async (index: number) => {
+    if (savingSection) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Delete domain?',
+      text: 'This will remove the domain from Supabase and update every page that uses Projects.',
+      showCancelButton: true,
+      confirmButtonText: 'Delete domain',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
+    const nextDomains = content.ugDomains.filter((_, itemIndex) => itemIndex !== index)
     setContent((current) => ({
       ...current,
-      ugDomains: current.ugDomains.filter((_, itemIndex) => itemIndex !== index),
+      ugDomains: nextDomains,
     }))
+    await saveSection('ugDomains', nextDomains)
   }
 
   return (
@@ -339,8 +447,11 @@ export default function ProjectsEditor() {
           <p>{statusMessage}</p>
         </div>
         <div className="proj-editor-banner-actions">
-          <button type="button" className="proj-editor-btn proj-editor-btn-secondary" onClick={restoreBackup} disabled={savingSection === 'all'}>
+          <button type="button" className="proj-editor-btn bg-amber-100 text-[#0d1f3c]" onClick={restoreBackup} disabled={savingSection === 'all'}>
             <RefreshCw size={14} /> Restore backup
+          </button>
+          <button type="button" className="proj-editor-btn proj-editor-btn-danger" onClick={deleteOverride} disabled={savingSection === 'all'}>
+            <Trash2 size={14} /> Delete from DB
           </button>
           <button type="button" className="proj-editor-btn proj-editor-btn-primary" onClick={syncAll} disabled={savingSection === 'all'}>
             <Database size={14} /> {savingSection === 'all' ? 'Syncing...' : 'Sync all'}
@@ -359,27 +470,23 @@ export default function ProjectsEditor() {
               <button type="button" className="proj-editor-btn proj-editor-btn-secondary" onClick={addPGProject} disabled={savingSection !== null}>
                 <Plus size={14} /> Add project
               </button>
-              <button type="button" className="proj-editor-btn proj-editor-btn-primary" onClick={savePGProjects} disabled={savingSection === 'pgProjects'}>
-                <Save size={14} /> {savingSection === 'pgProjects' ? 'Saving...' : 'Save list'}
-              </button>
             </div>
           </div>
 
           <div className="proj-editor-list">
             {content.pgProjects.map((project, index) => (
-              <div key={project.id} className="proj-editor-item">
-                <div className="proj-editor-item-head">
+              <div key={project.id} className={`proj-editor-item ${expandedPGId === project.id ? 'proj-editor-item-open' : ''}`}>
+                <button type="button" className="proj-editor-item-head proj-editor-item-toggle" onClick={() => setExpandedPGId((current) => (current === project.id ? null : project.id))}>
                   <div>
                     <p className="proj-editor-item-title">Project {index + 1}</p>
                     <p className="proj-editor-item-subtitle">{project.title || 'Untitled project'}</p>
                   </div>
-                  <div className="proj-editor-item-actions">
-                    <button type="button" className="proj-editor-btn proj-editor-btn-danger" onClick={() => removePGProject(index)} disabled={savingSection !== null}>
-                      <Trash2 size={14} /> Remove
-                    </button>
+                  <div className="proj-editor-item-chevron">
+                    {expandedPGId === project.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </div>
-                </div>
+                </button>
 
+                <div className={`proj-editor-item-body ${expandedPGId === project.id ? 'proj-editor-item-body-open' : ''}`}>
                 <div className="proj-editor-fields proj-editor-fields-grid">
                   <label>
                     <FieldLabel>Title</FieldLabel>
@@ -415,7 +522,7 @@ export default function ProjectsEditor() {
                   </label>
                   <label>
                     <FieldLabel>Color (hex)</FieldLabel>
-                    <TextField value={project.color} onChange={(value) => updatePGProjectField(index, 'color', value)} placeholder="#0D1F3C" />
+                    <ColorField value={project.color} onChange={(value) => updatePGProjectField(index, 'color', value)} />
                   </label>
                   <label className="proj-editor-span-2">
                     <FieldLabel>Project link</FieldLabel>
@@ -432,7 +539,7 @@ export default function ProjectsEditor() {
                         ref={(element) => {
                           fileInputRefs.current[project.id] = element
                         }}
-                        className="proj-editor-file"
+                        className="proj-editor-file-input"
                         type="file"
                         accept="image/*,.pdf"
                         onChange={(event) => uploadPGProjectAsset(project.id, event.target.files?.[0] || null)}
@@ -444,11 +551,20 @@ export default function ProjectsEditor() {
                         onClick={() => fileInputRefs.current[project.id]?.click()}
                         disabled={uploadingProjectId === project.id || savingSection !== null}
                       >
-                        <Upload size={14} /> {uploadingProjectId === project.id ? 'Uploading...' : 'Choose file'}
+                        <Upload size={14} /> {uploadingProjectId === project.id ? 'Uploading...' : 'Upload file'}
                       </button>
                     </div>
                     <p className="proj-editor-upload-help">Accepted formats: PDF, JPG, PNG, WebP. Uploading replaces the current file URL.</p>
                   </label>
+                </div>
+                <div className="proj-editor-item-actions">
+                  <button type="button" className="proj-editor-btn proj-editor-btn-primary" onClick={savePGProjects} disabled={savingSection === 'pgProjects'}>
+                    <Save size={14} /> {savingSection === 'pgProjects' ? 'Saving...' : 'Save project updates'}
+                  </button>
+                  <button type="button" className="proj-editor-btn proj-editor-btn-danger" onClick={() => void removePGProject(index)} disabled={savingSection !== null}>
+                    <Trash2 size={14} /> Delete project
+                  </button>
+                </div>
                 </div>
               </div>
             ))}
@@ -465,27 +581,23 @@ export default function ProjectsEditor() {
               <button type="button" className="proj-editor-btn proj-editor-btn-secondary" onClick={addUGDomain} disabled={savingSection !== null}>
                 <Plus size={14} /> Add domain
               </button>
-              <button type="button" className="proj-editor-btn proj-editor-btn-primary" onClick={saveUGDomains} disabled={savingSection === 'ugDomains'}>
-                <Save size={14} /> {savingSection === 'ugDomains' ? 'Saving...' : 'Save list'}
-              </button>
             </div>
           </div>
 
           <div className="proj-editor-list">
             {content.ugDomains.map((domain, index) => (
-              <div key={domain.id} className="proj-editor-item">
-                <div className="proj-editor-item-head">
+              <div key={domain.id} className={`proj-editor-item ${expandedUGId === domain.id ? 'proj-editor-item-open' : ''}`}>
+                <button type="button" className="proj-editor-item-head proj-editor-item-toggle" onClick={() => setExpandedUGId((current) => (current === domain.id ? null : domain.id))}>
                   <div>
                     <p className="proj-editor-item-title">Domain {index + 1}</p>
                     <p className="proj-editor-item-subtitle">{domain.domain || 'Untitled domain'}</p>
                   </div>
-                  <div className="proj-editor-item-actions">
-                    <button type="button" className="proj-editor-btn proj-editor-btn-danger" onClick={() => removeUGDomain(index)} disabled={savingSection !== null}>
-                      <Trash2 size={14} /> Remove
-                    </button>
+                  <div className="proj-editor-item-chevron">
+                    {expandedUGId === domain.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </div>
-                </div>
+                </button>
 
+                <div className={`proj-editor-item-body ${expandedUGId === domain.id ? 'proj-editor-item-body-open' : ''}`}>
                 <div className="proj-editor-fields proj-editor-fields-grid">
                   <label className="proj-editor-span-2">
                     <FieldLabel>Domain name</FieldLabel>
@@ -497,7 +609,7 @@ export default function ProjectsEditor() {
                   </label>
                   <label>
                     <FieldLabel>Color (hex)</FieldLabel>
-                    <TextField value={domain.color} onChange={(value) => updateUGDomainField(index, 'color', value)} placeholder="#0D1F3C" />
+                    <ColorField value={domain.color} onChange={(value) => updateUGDomainField(index, 'color', value)} />
                   </label>
                   <label>
                     <FieldLabel>Icon</FieldLabel>
@@ -524,6 +636,15 @@ export default function ProjectsEditor() {
                     <FieldLabel>Technologies, one per line</FieldLabel>
                     <TextArea value={joinLines(domain.technologies)} onChange={(value) => updateUGDomainField(index, 'technologies', splitLines(value))} rows={3} />
                   </label>
+                </div>
+                <div className="proj-editor-item-actions">
+                  <button type="button" className="proj-editor-btn proj-editor-btn-primary" onClick={saveUGDomains} disabled={savingSection === 'ugDomains'}>
+                    <Save size={14} /> {savingSection === 'ugDomains' ? 'Saving...' : 'Save domain updates'}
+                  </button>
+                  <button type="button" className="proj-editor-btn proj-editor-btn-danger" onClick={() => void removeUGDomain(index)} disabled={savingSection !== null}>
+                    <Trash2 size={14} /> Delete domain
+                  </button>
+                </div>
                 </div>
               </div>
             ))}
@@ -649,15 +770,56 @@ export default function ProjectsEditor() {
           border-radius: 16px;
           border: 1px solid var(--ink-line);
           background: linear-gradient(180deg, #fff, #FBFCFE);
-          padding: 14px;
+          overflow: hidden;
+        }
+
+        .proj-editor-item-open {
+          border-color: rgba(184,135,10,0.34);
+          box-shadow: 0 12px 24px rgba(13,31,60,0.09);
         }
 
         .proj-editor-item-head {
           display: flex;
           justify-content: space-between;
           gap: 12px;
-          align-items: flex-start;
-          margin-bottom: 12px;
+          align-items: center;
+          padding: 14px;
+          margin-bottom: 0;
+        }
+
+        .proj-editor-item-toggle {
+          width: 100%;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .proj-editor-item-toggle:hover {
+          background: rgba(184,135,10,0.06);
+        }
+
+        .proj-editor-item-chevron {
+          width: 30px;
+          height: 30px;
+          border-radius: 8px;
+          border: 1px solid var(--ink-line);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--ink-3);
+          flex-shrink: 0;
+        }
+
+        .proj-editor-item-body {
+          display: none;
+          padding: 0 14px 14px;
+          border-top: 1px solid rgba(13,31,60,0.08);
+          background: linear-gradient(180deg, rgba(184,135,10,0.04) 0%, rgba(255,255,255,1) 100%);
+        }
+
+        .proj-editor-item-body-open {
+          display: block;
         }
 
         .proj-editor-item-title {
@@ -706,14 +868,8 @@ export default function ProjectsEditor() {
           flex-wrap: wrap;
         }
 
-        .proj-editor-file {
-          flex: 1;
-          min-width: 220px;
-          border: 1px dashed var(--ink-line);
-          border-radius: 10px;
-          padding: 10px 12px;
-          background: #fff;
-          color: var(--ink-3);
+        .proj-editor-file-input {
+          display: none;
         }
 
         .proj-editor-upload-help {
@@ -744,21 +900,23 @@ export default function ProjectsEditor() {
         }
 
         .proj-editor-btn-primary {
-          background: var(--navy);
+          background: linear-gradient(135deg, #1A6B48 0%, #0E8E57 100%);
           color: #fff;
-          border-color: var(--navy);
+          border-color: rgba(14,142,87,0.32);
+          box-shadow: 0 8px 20px rgba(26,107,72,0.18);
         }
 
         .proj-editor-btn-secondary {
-          background: rgba(13,31,60,0.05);
-          color: var(--navy);
-          border-color: rgba(13,31,60,0.12);
+          background: rgba(13,31,60);
+          color: white;
+          border-color: rgba(13,31,60);
         }
 
         .proj-editor-btn-danger {
-          background: rgba(186,35,35,0.06);
-          color: #8A1E1E;
-          border-color: rgba(186,35,35,0.16);
+          background: linear-gradient(135deg, #B42318 0%, #D92D20 100%);
+          color: #fff;
+          border-color: rgba(185,28,28,0.24);
+          box-shadow: 0 8px 18px rgba(185,28,28,0.14);
         }
 
         .proj-editor-btn:disabled {
@@ -768,12 +926,31 @@ export default function ProjectsEditor() {
 
         .proj-editor-btn:hover:not(:disabled) {
           transform: translateY(-1px);
+          filter: brightness(1.02);
+        }
+
+        .proj-editor-color-field {
+          display: grid;
+          grid-template-columns: 54px minmax(0, 1fr);
+          gap: 10px;
+          align-items: center;
+        }
+
+        .proj-editor-color-swatch {
+          width: 54px;
+          height: 46px;
+          border-radius: 12px;
+          border: 1px solid var(--ink-line);
+          background: #fff;
+          padding: 3px;
+          cursor: pointer;
         }
 
         @media (max-width: 900px) {
           .proj-editor-banner,
           .proj-editor-card-head,
-          .proj-editor-item-head {
+          .proj-editor-item-head,
+          .proj-editor-item-actions {
             flex-direction: column;
           }
 

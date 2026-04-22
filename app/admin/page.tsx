@@ -11,7 +11,8 @@ import ResearchPatentsEditor from '@/components/admin/ResearchPatentsEditor'
 import AwardsEditor from '@/components/admin/AwardsEditor'
 import CertificatesEditor from '@/components/admin/CertificatesEditor'
 import ProjectsEditor from '@/components/admin/ProjectsEditor'
-import TeachingEditor from '@/components/admin/TeachingEditor'
+import ContactContentEditor from '@/components/admin/ContactContentEditor'
+import TeachingEditor from '../../components/admin/TeachingEditor'
 import {
   Activity,
   AlertTriangle,
@@ -20,6 +21,7 @@ import {
   Briefcase,
   CheckCircle2,
   Clock3,
+  ChevronLeft,
   ChevronRight,
   Database,
   FileText,
@@ -225,6 +227,7 @@ const MENU_ITEMS: MenuItem[] = [
 export default function AdminPage() {
   const router = useRouter()
   const [active, setActive] = useState<SectionId>('overview')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [logoutLoading, setLogoutLoading] = useState(false)
   const [overview, setOverview] = useState<SupabaseOverview | null>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
@@ -243,6 +246,15 @@ export default function AdminPage() {
   const activeItem = useMemo(
     () => MENU_ITEMS.find((item) => item.id === active) || MENU_ITEMS[0],
     [active],
+  )
+
+  const activeSectionFacts = useMemo(
+    () => [
+      { label: 'Category', value: activeItem.category },
+      { label: 'Route', value: activeItem.route },
+      { label: 'Summary', value: activeItem.summary },
+    ],
+    [activeItem],
   )
 
   const fetchOverview = async () => {
@@ -281,13 +293,7 @@ export default function AdminPage() {
 
   const dashboardMetrics = useMemo(
     () => [
-      {
-        label: 'Section Coverage',
-        value: overview ? `${overview.summary.coveragePercent}%` : '--',
-        detail: overview
-          ? `${overview.summary.rowsPresent}/${overview.summary.rowsExpected} keys present`
-          : 'Checking Supabase table coverage',
-      },
+      
       {
         label: 'DB Content Size',
         value: overview ? `${overview.summary.dbUsedMb.toFixed(2)} MB` : '--',
@@ -303,6 +309,11 @@ export default function AdminPage() {
         value: overview ? `${overview.request.latencyMs} ms` : '--',
         detail: 'Latest admin overview request duration',
       },
+     {
+  label: 'Server Provider',
+  value: 'AWS (ap-south-1)',
+  detail: 'Instance: t4g.nano',
+}
     ],
     [overview],
   )
@@ -346,14 +357,24 @@ export default function AdminPage() {
 
   return (
     <div className="admin-shell">
-      <div className="admin-shell-inner">
-        <aside className="admin-sidebar">
-          <div className="admin-brand">
-            <p className="admin-brand-kicker">Corporate Control</p>
-            <h1>Admin Dashboard</h1>
-            <p>Manage content sections with a structured workflow.</p>
-          </div>
+      <div className={`admin-shell-inner ${sidebarOpen ? '' : 'admin-shell-inner-collapsed'}`}>
+        <aside className={`admin-sidebar ${sidebarOpen ? '' : 'admin-sidebar-collapsed'}`}>
+<div className="admin-sidebar-header">
+  <div className="admin-brand">
+    <p className="admin-brand-kicker">Corporate Control</p>
+    <h1>Admin Workspace</h1>
+    <p>Manage content sections with a structured workflow.</p>
+  </div>
 
+  <button
+    type="button"
+    className="admin-sidebar-toggle"
+    onClick={() => setSidebarOpen((current) => !current)}
+  >
+    {sidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+    <span>{sidebarOpen ? 'Hide' : 'Show'}</span>
+  </button>
+</div>
           <div className="admin-nav-wrap">
             {grouped.map(([label, items]) => (
               <div key={label} className="admin-nav-group">
@@ -368,11 +389,16 @@ export default function AdminPage() {
                         type="button"
                         className={`admin-nav-item ${activeItemClass ? 'admin-nav-item-active' : ''}`}
                         onClick={() => setActive(item.id)}
+                        title={item.label}
+                        aria-label={`Open ${item.label}`}
                       >
                         <span className="admin-nav-item-icon">
                           <Icon size={14} />
                         </span>
-                        <span className="admin-nav-item-text">{item.label}</span>
+                        <span className="admin-nav-item-body">
+                          <span className="admin-nav-item-text">{item.label}</span>
+                          <span className="admin-nav-item-summary">{item.summary}</span>
+                        </span>
                         <ChevronRight size={12} className="admin-nav-item-chevron" />
                       </button>
                     )
@@ -426,7 +452,7 @@ export default function AdminPage() {
                         <Database size={13} /> Supabase Plan & Usage
                       </p>
                       <h3>{overview?.plan.name || 'Loading plan details...'}</h3>
-                      <p className="admin-plan-subtitle">Region: {overview?.plan.region || 'Not available'}</p>
+                      <p className="admin-plan-subtitle">Region: South Asia (Mumbai)</p>
 
                       {overview?.plan.quotaSource === 'free-default' && (
                         <div className="admin-overview-alert admin-overview-alert-spaced admin-overview-alert-success">
@@ -448,9 +474,7 @@ export default function AdminPage() {
                               {overview ? `${overview.plan.usage.db.usedMb.toFixed(2)} MB / ${overview.plan.usage.db.quotaMb ?? 'N/A'} MB` : 'Loading...'}
                             </span>
                           </div>
-                          <div className="admin-usage-bar">
-                            <span style={{ width: `${Math.min(overview?.plan.usage.db.percent || 0, 100)}%` }} />
-                          </div>
+                          <progress className="admin-usage-bar" value={Math.min(overview?.plan.usage.db.percent || 0, 100)} max={100} aria-label="Database usage" />
                           <p className="admin-usage-caption">Utilization: {overview ? formatPercent(overview.plan.usage.db.percent) : 'N/A'}</p>
                           <p className="admin-usage-caption">
                             Remaining: {overview
@@ -468,9 +492,7 @@ export default function AdminPage() {
                               {overview ? `${overview.plan.usage.storage.usedMb.toFixed(2)} MB / ${overview.plan.usage.storage.quotaMb ?? 'N/A'} MB` : 'Loading...'}
                             </span>
                           </div>
-                          <div className="admin-usage-bar">
-                            <span style={{ width: `${Math.min(overview?.plan.usage.storage.percent || 0, 100)}%` }} />
-                          </div>
+                          <progress className="admin-usage-bar" value={Math.min(overview?.plan.usage.storage.percent || 0, 100)} max={100} aria-label="Storage usage" />
                           <p className="admin-usage-caption">Utilization: {overview ? formatPercent(overview.plan.usage.storage.percent) : 'N/A'}</p>
                           <p className="admin-usage-caption">
                             Remaining: {overview
@@ -542,8 +564,8 @@ export default function AdminPage() {
 
                       {overview && overview.sections.missing.length > 0 && (
                         <div className="admin-token-list">
-                          {overview.sections.missing.map((key) => (
-                            <span key={key} className="admin-token admin-token-danger">{key}</span>
+                          {overview.sections.missing.map((key, index) => (
+                            <span key={`${key}-${index}`} className="admin-token admin-token-danger">{key}</span>
                           ))}
                         </div>
                       )}
@@ -608,48 +630,86 @@ export default function AdminPage() {
                   </div>
                 </>
               ) : (
-                activeItem.id === 'home' ? (
-                  <HomeContentEditor />
-                ) : activeItem.id === 'about' ? (
-                  <AboutContentEditor />
-                ) : activeItem.id === 'research-publications' ? (
-                  <ResearchPublicationsEditor />
-                ) : activeItem.id === 'research-patents' ? (
-                  <ResearchPatentsEditor />
-                ) : activeItem.id === 'achievements-awards' ? (
-                  <AwardsEditor />
-                ) : activeItem.id === 'achievements-certificates' ? (
-                  <CertificatesEditor />
-                ) : activeItem.id === 'projects' ? (
-                  <ProjectsEditor />
-                ) : activeItem.id === 'teaching' ? (
-                  <TeachingEditor />
-                ) : (
-                  <div className="admin-detail-card">
-                    <div className="admin-detail-head">
+                <>
+                  <div className="admin-focus-card">
+                    <div className="admin-focus-head">
                       <div className="admin-detail-icon">
                         <activeItem.icon size={18} />
                       </div>
                       <div>
-                        <p className="admin-detail-kicker">Content Workspace</p>
+                        <p className="admin-detail-kicker">Selected Workspace</p>
                         <h3>{activeItem.label}</h3>
+                        <p className="admin-focus-subtitle">{activeItem.summary}</p>
                       </div>
                     </div>
 
-                    <p className="admin-detail-copy">
-                      This section is mapped and ready for CRUD integration. You can now add forms, editors, upload blocks and data actions for this page.
-                    </p>
+                    <div className="admin-focus-facts">
+                      {activeSectionFacts.map((fact) => (
+                        <div key={fact.label} className="admin-focus-fact">
+                          <span>{fact.label}</span>
+                          <strong>{fact.value}</strong>
+                        </div>
+                      ))}
+                    </div>
 
-                    <div className="admin-detail-actions">
+                    <div className="admin-focus-actions">
                       <Link href={activeItem.route} className="admin-btn-primary">
-                        Open Public Page
+                        Open public page
                       </Link>
                       <button type="button" className="admin-btn-secondary" onClick={() => setActive('overview')}>
-                        Back to Overview
+                        Back to overview
+                      </button>
+                      <button type="button" className="admin-btn-ghost" onClick={() => setSidebarOpen((current) => !current)}>
+                        {sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
                       </button>
                     </div>
                   </div>
-                )
+
+                  {activeItem.id === 'home' ? (
+                    <HomeContentEditor />
+                  ) : activeItem.id === 'about' ? (
+                    <AboutContentEditor />
+                  ) : activeItem.id === 'research-publications' ? (
+                    <ResearchPublicationsEditor />
+                  ) : activeItem.id === 'research-patents' ? (
+                    <ResearchPatentsEditor />
+                  ) : activeItem.id === 'achievements-awards' ? (
+                    <AwardsEditor />
+                  ) : activeItem.id === 'achievements-certificates' ? (
+                    <CertificatesEditor />
+                  ) : activeItem.id === 'projects' ? (
+                    <ProjectsEditor />
+                  ) : activeItem.id === 'teaching' ? (
+                    <TeachingEditor />
+                  ) : activeItem.id === 'contact' ? (
+                    <ContactContentEditor />
+                  ) : (
+                    <div className="admin-detail-card">
+                      <div className="admin-detail-head">
+                        <div className="admin-detail-icon">
+                          <activeItem.icon size={18} />
+                        </div>
+                        <div>
+                          <p className="admin-detail-kicker">Content Workspace</p>
+                          <h3>{activeItem.label}</h3>
+                        </div>
+                      </div>
+
+                      <p className="admin-detail-copy">
+                        This section is mapped and ready for CRUD integration. You can now add forms, editors, upload blocks and data actions for this page.
+                      </p>
+
+                      <div className="admin-detail-actions">
+                        <Link href={activeItem.route} className="admin-btn-primary">
+                          Open public page
+                        </Link>
+                        <button type="button" className="admin-btn-secondary" onClick={() => setActive('overview')}>
+                          Back to overview
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </motion.section>
           </AnimatePresence>
@@ -674,6 +734,10 @@ export default function AdminPage() {
           gap: 18px;
         }
 
+        .admin-shell-inner-collapsed {
+          grid-template-columns: 104px minmax(0, 1fr);
+        }
+
         .admin-sidebar {
           background: #fff;
           border: 1px solid var(--ink-line);
@@ -682,9 +746,20 @@ export default function AdminPage() {
           box-shadow: 0 16px 38px rgba(13,31,60,0.11);
           display: flex;
           flex-direction: column;
-          max-height: calc(100vh - 136px);
+          
           position: sticky;
           top: 88px;
+        }
+
+        .admin-sidebar:hover {
+          box-shadow: 0 22px 48px rgba(13,31,60,0.14);
+          border-color: rgba(184,135,10,0.22);
+        }
+
+        .admin-sidebar-header {
+          display: grid;
+          gap: 12px;
+          margin-bottom: 14px;
         }
 
         .admin-brand {
@@ -692,7 +767,6 @@ export default function AdminPage() {
           border-radius: 16px;
           background: linear-gradient(145deg, #0D1F3C 0%, #16335E 100%);
           color: #fff;
-          margin-bottom: 14px;
         }
 
         .admin-brand-kicker {
@@ -716,9 +790,143 @@ export default function AdminPage() {
           color: rgba(255,255,255,0.88);
         }
 
+        .admin-sidebar-toggle {
+          border: 1px solid var(--ink-line);
+          background: #fff;
+          color: var(--navy);
+          border-radius: 12px;
+          padding: 9px 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.15s;
+        }
+
+        .admin-sidebar-toggle:hover {
+          background: var(--gold-pale);
+          border-color: var(--gold-border);
+          color: var(--gold);
+          transform: translateY(-1px);
+        }
+
+        .admin-sidebar-collapsed {
+          padding: 10px 8px;
+          background: linear-gradient(180deg, #F8FBFF 0%, #FDFEFF 100%);
+          border-color: rgba(13,31,60,0.14);
+          width: 88px;
+          transition: width 0.2s ease, padding 0.2s ease;
+        }
+
+        .admin-sidebar-collapsed .admin-brand {
+          display: none;
+        }
+
+        .admin-sidebar-collapsed .admin-sidebar-header {
+          margin-bottom: 10px;
+        }
+
+        .admin-sidebar-collapsed .admin-sidebar-toggle {
+          width: 40px;
+          height: 40px;
+          padding: 0;
+          margin: 0 auto;
+          border-radius: 10px;
+          background: #fff;
+          border-color: rgba(13,31,60,0.16);
+        }
+
+        .admin-sidebar-collapsed .admin-sidebar-toggle span {
+          display: none;
+        }
+
+        .admin-sidebar-collapsed:hover {
+          width: 320px;
+          padding: 12px;
+          z-index: 5;
+        }
+
+        .admin-sidebar-collapsed:hover .admin-brand {
+          display: block;
+        }
+
+        .admin-sidebar-collapsed:hover .admin-brand h1,
+        .admin-sidebar-collapsed:hover .admin-brand p,
+        .admin-sidebar-collapsed:hover .admin-brand-kicker,
+        .admin-sidebar-collapsed:hover .admin-nav-title,
+        .admin-sidebar-collapsed:hover .admin-nav-item-chevron,
+        .admin-sidebar-collapsed:hover .admin-logout {
+          display: block;
+        }
+
+        .admin-sidebar-collapsed:hover .admin-nav-item-body {
+          display: grid;
+        }
+
+        .admin-sidebar-collapsed:hover .admin-sidebar-toggle {
+          width: auto;
+          height: auto;
+          padding: 9px 12px;
+          margin: 0;
+        }
+
+        .admin-sidebar-collapsed:hover .admin-sidebar-toggle span {
+          display: inline;
+        }
+
+        .admin-sidebar-collapsed:hover .admin-nav-item {
+          justify-content: flex-start;
+          padding: 9px 10px;
+        }
+
+        .admin-sidebar-collapsed:hover .admin-nav-item-icon {
+          width: 28px;
+          height: 28px;
+        }
+
+        .admin-sidebar-collapsed .admin-brand h1,
+        .admin-sidebar-collapsed .admin-brand p,
+        .admin-sidebar-collapsed .admin-brand-kicker,
+        .admin-sidebar-collapsed .admin-nav-title,
+        .admin-sidebar-collapsed .admin-nav-item-body,
+        .admin-sidebar-collapsed .admin-nav-item-chevron,
+        .admin-sidebar-collapsed .admin-logout {
+          display: none;
+        }
+
+        .admin-sidebar-collapsed .admin-nav-item {
+          justify-content: center;
+          padding: 8px;
+          border-radius: 10px;
+        }
+
+        .admin-sidebar-collapsed .admin-nav-item-icon {
+          margin: 0;
+          width: 30px;
+          height: 30px;
+          border-color: rgba(13,31,60,0.16);
+          background: #fff;
+          color: var(--navy);
+        }
+
+        .admin-sidebar-collapsed .admin-nav-item-active {
+          background: linear-gradient(135deg, rgba(13,31,60,0.12) 0%, rgba(184,135,10,0.16) 100%);
+          border-color: rgba(184,135,10,0.36);
+        }
+
+        .admin-sidebar-collapsed .admin-nav-item-active .admin-nav-item-icon {
+          background: rgba(184,135,10,0.16);
+          border-color: rgba(184,135,10,0.38);
+          color: var(--gold);
+        }
+
         .admin-nav-wrap {
           flex: 1;
-          overflow: auto;
+          overflow-y: auto;
+          overflow-x: hidden;
           padding-right: 2px;
         }
 
@@ -785,11 +993,28 @@ export default function AdminPage() {
           border-color: rgba(184,135,10,0.34);
         }
 
+        .admin-nav-item-body {
+          display: grid;
+          gap: 2px;
+          min-width: 0;
+          flex: 1;
+        }
+
         .admin-nav-item-text {
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           line-height: 1.2;
           flex: 1;
+        }
+
+        .admin-nav-item-summary {
+          font-size: 11px;
+          color: var(--ink-4);
+          line-height: 1.45;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
         .admin-nav-item-chevron {
@@ -871,6 +1096,63 @@ export default function AdminPage() {
         .admin-panel {
           display: grid;
           gap: 14px;
+        }
+
+        .admin-focus-card {
+          border: 1px solid var(--gold-border);
+          background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,252,243,0.98) 100%);
+          border-radius: 18px;
+          padding: 18px;
+          box-shadow: 0 14px 32px rgba(13,31,60,0.08);
+        }
+
+        .admin-focus-head {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .admin-focus-subtitle {
+          color: var(--ink-3);
+          line-height: 1.65;
+          margin-top: 6px;
+        }
+
+        .admin-focus-facts {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .admin-focus-fact {
+          border-radius: 12px;
+          border: 1px solid var(--ink-line);
+          background: #fff;
+          padding: 10px 12px;
+          display: grid;
+          gap: 4px;
+        }
+
+        .admin-focus-fact span {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: var(--ink-4);
+        }
+
+        .admin-focus-fact strong {
+          font-size: 12.5px;
+          color: var(--navy);
+          line-height: 1.55;
+        }
+
+        .admin-focus-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
         }
 
         .admin-grid-metrics {
@@ -985,14 +1267,23 @@ export default function AdminPage() {
           overflow: hidden;
           border: 1px solid #E2E8F2;
           margin-bottom: 6px;
+          appearance: none;
+          -webkit-appearance: none;
+          padding: 0;
         }
 
-        .admin-usage-bar span {
-          display: block;
-          height: 100%;
+        .admin-usage-bar::-webkit-progress-bar {
+          background: #EEF2F8;
+        }
+
+        .admin-usage-bar::-webkit-progress-value {
           border-radius: 999px;
           background: linear-gradient(90deg, #B8870A 0%, #0D1F3C 100%);
-          transition: width 0.35s ease;
+        }
+
+        .admin-usage-bar::-moz-progress-bar {
+          border-radius: 999px;
+          background: linear-gradient(90deg, #B8870A 0%, #0D1F3C 100%);
         }
 
         .admin-usage-caption {
@@ -1258,7 +1549,8 @@ export default function AdminPage() {
         }
 
         .admin-btn-primary,
-        .admin-btn-secondary {
+        .admin-btn-secondary,
+        .admin-btn-ghost {
           border-radius: 10px;
           padding: 10px 14px;
           font-size: 13px;
@@ -1269,15 +1561,156 @@ export default function AdminPage() {
         }
 
         .admin-btn-primary {
-          background: var(--navy);
-          border-color: var(--navy);
+          background: linear-gradient(135deg, #1A6B48 0%, #0E8E57 100%);
+          border-color: #0E8E57;
           color: #fff;
+          box-shadow: 0 8px 20px rgba(26,107,72,0.18);
         }
 
         .admin-btn-secondary {
-          background: #fff;
+          background: rgba(13,31,60,0.06);
           border-color: var(--ink-line);
           color: var(--ink);
+        }
+
+        .admin-btn-ghost {
+          background: #fff;
+          border-color: rgba(184,135,10,0.24);
+          color: var(--gold);
+        }
+
+        .admin-main [class*='-editor-btn-primary'] {
+          background: linear-gradient(135deg, #1A6B48 0%, #0E8E57 100%) !important;
+          color: #fff !important;
+          box-shadow: 0 8px 20px rgba(26,107,72,0.16);
+          border-color: rgba(14,142,87,0.28) !important;
+        }
+
+        .admin-main [class*='-editor-btn-secondary'] {
+          background: rgba(13,31,60,0.07) !important;
+          color: var(--navy) !important;
+          border-color: rgba(13,31,60,0.14) !important;
+        }
+
+        .admin-main [class*='-editor-btn-danger'] {
+          background: linear-gradient(135deg, #B42318 0%, #D92D20 100%) !important;
+          color: #fff !important;
+          border-color: rgba(185,28,28,0.26) !important;
+          box-shadow: 0 8px 18px rgba(185,28,28,0.14);
+        }
+
+        .admin-main [class*='-editor-btn-primary']:hover:not(:disabled),
+        .admin-main [class*='-editor-btn-secondary']:hover:not(:disabled),
+        .admin-main [class*='-editor-btn-danger']:hover:not(:disabled) {
+          transform: translateY(-1px);
+          filter: brightness(1.02);
+        }
+
+        .admin-main [class*='-editor-shell'] {
+          font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+          color: var(--ink);
+          font-size: 14px;
+          line-height: 1.6;
+        }
+
+        .admin-main [class*='-editor-shell'] h1,
+        .admin-main [class*='-editor-shell'] h2,
+        .admin-main [class*='-editor-shell'] h3,
+        .admin-main [class*='-editor-shell'] h4,
+        .admin-main [class*='-editor-shell'] h5,
+        .admin-main [class*='-editor-shell'] h6,
+        .admin-main [class*='-editor-shell'] p,
+        .admin-main [class*='-editor-shell'] label,
+        .admin-main [class*='-editor-shell'] li,
+        .admin-main [class*='-editor-shell'] span,
+        .admin-main [class*='-editor-shell'] a {
+          font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+          letter-spacing: 0.01em;
+        }
+
+        .admin-main [class*='-editor-shell'] h3 { font-size: 20px; line-height: 1.25; }
+        .admin-main [class*='-editor-shell'] h4 { font-size: 15px; line-height: 1.35; }
+        .admin-main [class*='-editor-shell'] h5 { font-size: 13px; line-height: 1.35; }
+        .admin-main [class*='-editor-shell'] p { font-size: 13px; line-height: 1.65; }
+        .admin-main [class*='-editor-shell'] label { font-size: 13px; }
+
+        .admin-main [class*='-editor-card'],
+        .admin-main [class*='-editor-section'],
+        .admin-main [class*='-editor-repeat-card'],
+        .admin-main [class*='-editor-item'] {
+          border-radius: 14px;
+        }
+
+        .admin-main [class*='-editor-banner'],
+        .admin-main [class*='-editor-card'],
+        .admin-main [class*='-editor-section'],
+        .admin-main [class*='-editor-repeat-card'],
+        .admin-main [class*='-editor-item'],
+        .admin-main [class*='-editor-focus-card'],
+        .admin-main [class*='-editor-detail-card'] {
+          color: var(--ink);
+        }
+
+        .admin-main [class*='-editor-banner'] h1,
+        .admin-main [class*='-editor-banner'] h2,
+        .admin-main [class*='-editor-banner'] h3,
+        .admin-main [class*='-editor-banner'] h4,
+        .admin-main [class*='-editor-banner'] p,
+        .admin-main [class*='-editor-banner'] span,
+        .admin-main [class*='-editor-banner'] label {
+          color: inherit;
+        }
+
+        .admin-main [class*='-editor-banner'] {
+          color: #fff;
+        }
+
+        .admin-main [class*='-editor-card'] h3,
+        .admin-main [class*='-editor-card'] h4,
+        .admin-main [class*='-editor-section'] h3,
+        .admin-main [class*='-editor-section'] h4,
+        .admin-main [class*='-editor-item'] h3,
+        .admin-main [class*='-editor-item'] h4 {
+          color: var(--navy);
+        }
+
+        .admin-main [class*='-editor-btn'],
+        .admin-main [class*='-editor-link-btn'] {
+          min-height: 38px;
+          min-width: 112px;
+          font-size: 12px !important;
+          font-weight: 700 !important;
+          border-radius: 10px !important;
+          padding: 9px 12px !important;
+          line-height: 1.2;
+          white-space: nowrap;
+        }
+
+        .admin-main [class*='-editor-btn']:disabled,
+        .admin-main [class*='-editor-link-btn']:disabled {
+          opacity: 0.58;
+          cursor: not-allowed;
+        }
+
+        .admin-main [class*='-editor-input'],
+        .admin-main [class*='-editor-textarea'],
+        .admin-main [class*='-editor-select'] {
+          min-height: 40px;
+          border-radius: 10px !important;
+          font-size: 13px !important;
+          font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+          border-color: rgba(13,31,60,0.16) !important;
+          color: var(--ink) !important;
+        }
+
+        .admin-main [class*='-editor-textarea'] {
+          min-height: 90px;
+        }
+
+        .admin-main [class*='-editor-field-label'] {
+          font-size: 10.5px !important;
+          letter-spacing: 0.1em !important;
+          font-weight: 700 !important;
         }
 
         @media (max-width: 1160px) {
@@ -1288,6 +1721,26 @@ export default function AdminPage() {
           .admin-sidebar {
             position: static;
             max-height: unset;
+          }
+
+          .admin-shell-inner-collapsed {
+            grid-template-columns: 1fr;
+          }
+
+          .admin-sidebar-collapsed {
+            padding-left: 10px;
+            padding-right: 10px;
+            width: auto;
+          }
+
+          .admin-sidebar-collapsed:hover {
+            width: auto;
+            padding-left: 10px;
+            padding-right: 10px;
+          }
+          
+          .admin-focus-facts {
+            grid-template-columns: 1fr;
           }
         }
 

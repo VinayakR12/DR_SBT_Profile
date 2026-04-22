@@ -251,7 +251,7 @@ export default function AboutPage() {
                   }}
                 >
                   {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
-                  <span>{contentSource === 'supabase' ? 'Live from Supabase' : 'Backup content active'}</span>
+                  <span>{contentSource === 'supabase' ? 'Live' : 'Backup'}</span>
                 </div>
               )}
 
@@ -284,7 +284,7 @@ export default function AboutPage() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 <Link
                   href="/research"
-                  className="btn-navy"
+                  className="btn-navy bg-white text-navy hover:bg-navy"
                   style={{ padding: "10px 22px", fontSize: 13.5 }}
                 >
                   Research Work <ArrowRight size={14} />

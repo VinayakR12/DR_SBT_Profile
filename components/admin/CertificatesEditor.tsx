@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { Database, Plus, RefreshCw, Save, Trash2, Upload } from 'lucide-react'
+import { ChevronDown, ChevronUp, Database, Plus, RefreshCw, Save, Trash2, Upload } from 'lucide-react'
 
 import {
   CERTIFICATE_CATEGORIES,
@@ -100,6 +100,8 @@ export default function CertificatesEditor() {
   const [statusMessage, setStatusMessage] = useState<string>('Loading certificates content...')
   const [savingSection, setSavingSection] = useState<CertificatesSectionKey | 'all' | null>(null)
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+  const [expandedSection, setExpandedSection] = useState<CertificatesSectionKey | null>('hero')
+  const [expandedCertificateId, setExpandedCertificateId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -201,6 +203,36 @@ export default function CertificatesEditor() {
     await saveSection('certificates', content.certificates)
   }
 
+  const confirmAndSaveCertificates = async (nextCertificates: CertificatesContentRaw['certificates'], title: string, text: string) => {
+    if (savingSection) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title,
+      text,
+      showCancelButton: true,
+      confirmButtonText: 'Delete row',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
+    setContent((current) => ({
+      ...current,
+      certificates: nextCertificates,
+    }))
+    await saveSection('certificates', nextCertificates)
+  }
+
   const syncAll = async () => {
     if (savingSection) {
       return
@@ -236,6 +268,49 @@ export default function CertificatesEditor() {
     await syncAll()
   }
 
+  const deleteOverride = async () => {
+    if (savingSection) {
+      return
+    }
+
+    const Swal = (await import('sweetalert2')).default
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Delete certificates override?',
+      text: 'The page will fall back to the static Certificates data file.',
+      showCancelButton: true,
+      confirmButtonText: 'Delete override',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#B8870A',
+      cancelButtonColor: '#0D1F3C',
+      background: '#FFFFFF',
+      color: '#0F172A',
+    })
+
+    if (!confirm.isConfirmed) {
+      return
+    }
+
+    setSavingSection('all')
+    try {
+      const response = await fetch('/api/achievements-certificates-content', { method: 'DELETE' })
+      const payload = (await response.json()) as ApiState
+      if (!response.ok || !payload.ok) {
+        await showAlert('error', 'Delete failed', payload.message || 'Unable to remove the certificates override.')
+        return
+      }
+
+      setContent(normalizeCertificatesContent(payload.content || STATIC_CERTIFICATES_CONTENT))
+      setSource('backup')
+      setStatusMessage('Certificates override removed. Backup content is active.')
+      await showAlert('success', 'Deleted', 'Certificates now use the backup file.')
+    } catch {
+      await showAlert('error', 'Delete failed', 'Unable to reach the certificates API.')
+    } finally {
+      setSavingSection(null)
+    }
+  }
+
   const updateHeroField = (field: keyof CertificatesContentRaw['hero'], value: string) => {
     setContent((current) => ({
       ...current,
@@ -268,10 +343,11 @@ export default function CertificatesEditor() {
   }
 
   const removeCertificate = (index: number) => {
-    setContent((current) => ({
-      ...current,
-      certificates: current.certificates.filter((_, itemIndex) => itemIndex !== index),
-    }))
+    void confirmAndSaveCertificates(
+      content.certificates.filter((_, itemIndex) => itemIndex !== index),
+      'Delete this certificate?',
+      'This will remove the certificate from Supabase and every page that uses it.',
+    )
   }
 
   const uploadAsset = async (params: { file: File; certificateId: string }) => {
@@ -359,8 +435,11 @@ export default function CertificatesEditor() {
           <p>{statusMessage}</p>
         </div>
         <div className="cert-editor-banner-actions">
-          <button type="button" className="cert-editor-btn cert-editor-btn-secondary" onClick={restoreBackup} disabled={savingSection === 'all'}>
+          <button type="button" className="cert-editor-btn bg-amber-200 text-[#0d1f3c]" onClick={restoreBackup} disabled={savingSection === 'all'}>
             <RefreshCw size={14} /> Restore backup
+          </button>
+          <button type="button" className="cert-editor-btn cert-editor-btn-danger" onClick={deleteOverride} disabled={savingSection === 'all'}>
+            <Trash2 size={14} /> Delete from DB
           </button>
           <button type="button" className="cert-editor-btn cert-editor-btn-primary" onClick={syncAll} disabled={savingSection === 'all'}>
             <Database size={14} /> {savingSection === 'all' ? 'Syncing...' : 'Sync all'}
@@ -370,17 +449,20 @@ export default function CertificatesEditor() {
 
       <div className="cert-editor-grid">
         <motion.section className="cert-editor-card" initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-          <div className="cert-editor-card-head">
+          <div className="cert-editor-card-head cert-editor-card-head-accordion">
             <div>
-              <p className="cert-editor-section-kicker">{CERTIFICATES_SECTION_META.hero.label}</p>
-              <h4>{CERTIFICATES_SECTION_META.hero.description}</h4>
+              <button type="button" className="cert-editor-section-toggle" onClick={() => setExpandedSection(expandedSection === 'hero' ? null : 'hero')}>
+                <p className="cert-editor-section-kicker">{CERTIFICATES_SECTION_META.hero.label}</p>
+                <h4>{CERTIFICATES_SECTION_META.hero.description}</h4>
+                <span className="cert-editor-toggle-icon">{expandedSection === 'hero' ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+              </button>
             </div>
             <button type="button" className="cert-editor-btn cert-editor-btn-primary" onClick={saveHero} disabled={savingSection === 'hero'}>
               <Save size={14} /> {savingSection === 'hero' ? 'Saving...' : 'Save hero'}
             </button>
           </div>
 
-          <div className="cert-editor-fields">
+          {expandedSection === 'hero' ? <div className="cert-editor-fields">
             <label>
               <FieldLabel>Eyebrow</FieldLabel>
               <TextField value={content.hero.eyebrow} onChange={(value) => updateHeroField('eyebrow', value)} />
@@ -393,14 +475,17 @@ export default function CertificatesEditor() {
               <FieldLabel>Subtitle</FieldLabel>
               <TextArea value={content.hero.subtitle} onChange={(value) => updateHeroField('subtitle', value)} rows={4} />
             </label>
-          </div>
+          </div> : null}
         </motion.section>
 
         <motion.section className="cert-editor-card" initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-          <div className="cert-editor-card-head cert-editor-card-head-stack">
+          <div className="cert-editor-card-head cert-editor-card-head-stack cert-editor-card-head-accordion">
             <div>
-              <p className="cert-editor-section-kicker">{CERTIFICATES_SECTION_META.certificates.label}</p>
-              <h4>{CERTIFICATES_SECTION_META.certificates.description}</h4>
+              <button type="button" className="cert-editor-section-toggle" onClick={() => setExpandedSection(expandedSection === 'certificates' ? null : 'certificates')}>
+                <p className="cert-editor-section-kicker">{CERTIFICATES_SECTION_META.certificates.label}</p>
+                <h4>{CERTIFICATES_SECTION_META.certificates.description}</h4>
+                <span className="cert-editor-toggle-icon">{expandedSection === 'certificates' ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+              </button>
             </div>
             <div className="cert-editor-banner-actions">
               <button type="button" className="cert-editor-btn cert-editor-btn-secondary" onClick={addCertificate} disabled={savingSection !== null}>
@@ -412,14 +497,17 @@ export default function CertificatesEditor() {
             </div>
           </div>
 
-          <div className="cert-editor-list">
+          {expandedSection === 'certificates' ? <div className="cert-editor-list">
             {content.certificates.map((certificate, index) => (
               <div key={certificate.id} className="cert-editor-item">
                 <div className="cert-editor-item-head">
-                  <div>
+                  <button type="button" className="cert-editor-item-toggle" onClick={() => setExpandedCertificateId(expandedCertificateId === certificate.id ? null : certificate.id)}>
+                    <div>
                     <p className="cert-editor-item-title">Certificate {index + 1}</p>
                     <p className="cert-editor-item-subtitle">{certificate.title || 'Untitled certificate'}</p>
-                  </div>
+                    </div>
+                    <span className="cert-editor-toggle-icon">{expandedCertificateId === certificate.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+                  </button>
                   <div className="cert-editor-item-actions">
                     <button type="button" className="cert-editor-btn cert-editor-btn-secondary" onClick={() => saveCertificateItem(index)} disabled={savingSection === 'certificates'}>
                       <Save size={14} /> Save item
@@ -430,7 +518,7 @@ export default function CertificatesEditor() {
                   </div>
                 </div>
 
-                <div className="cert-editor-fields cert-editor-fields-grid">
+                {expandedCertificateId === certificate.id ? <div className="cert-editor-fields cert-editor-fields-grid">
                   <label>
                     <FieldLabel>Title</FieldLabel>
                     <TextField value={certificate.title} onChange={(value) => updateCertificateField(index, 'title', value)} />
@@ -480,7 +568,27 @@ export default function CertificatesEditor() {
                         type="button"
                         className="cert-editor-btn cert-editor-btn-danger"
                         disabled={!certificate.file || Boolean(uploadingKey)}
-                        onClick={() => removeAsset({ certificateId: certificate.id, assetUrl: certificate.file })}
+                        onClick={async () => {
+                          const Swal = (await import('sweetalert2')).default
+                          const confirm = await Swal.fire({
+                            icon: 'warning',
+                            title: 'Remove certificate asset?',
+                            text: 'The uploaded file will be removed from Supabase Storage.',
+                            showCancelButton: true,
+                            confirmButtonText: 'Remove asset',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#B8870A',
+                            cancelButtonColor: '#0D1F3C',
+                            background: '#FFFFFF',
+                            color: '#0F172A',
+                          })
+
+                          if (!confirm.isConfirmed) {
+                            return
+                          }
+
+                          await removeAsset({ certificateId: certificate.id, assetUrl: certificate.file })
+                        }}
                       >
                         <Trash2 size={14} /> Remove
                       </button>
@@ -502,10 +610,10 @@ export default function CertificatesEditor() {
                     <FieldLabel>Tags, one per line</FieldLabel>
                     <TextArea value={joinLines(certificate.tags || [])} onChange={(value) => updateCertificateField(index, 'tags', splitLines(value))} rows={3} />
                   </label>
-                </div>
+                </div> : null}
               </div>
             ))}
-          </div>
+          </div> : null}
         </motion.section>
       </div>
 
@@ -589,6 +697,36 @@ export default function CertificatesEditor() {
 
         .cert-editor-card-head-stack {
           align-items: center;
+        }
+
+        .cert-editor-card-head-accordion {
+          align-items: flex-start;
+        }
+
+        .cert-editor-section-toggle,
+        .cert-editor-item-toggle {
+          border: none;
+          background: transparent;
+          text-align: left;
+          padding: 0;
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+        }
+
+        .cert-editor-toggle-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          border: 1px solid var(--ink-line);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--ink-3);
+          flex-shrink: 0;
         }
 
         .cert-editor-section-kicker {
@@ -716,9 +854,9 @@ export default function CertificatesEditor() {
         }
 
         .cert-editor-btn-primary {
-          background: var(--navy);
+          background: linear-gradient(135deg, #1A6B48 0%, #0E8E57 100%);
           color: #fff;
-          border-color: var(--navy);
+          border-color: rgba(14,142,87,0.32);
         }
 
         .cert-editor-btn-secondary {
@@ -728,9 +866,9 @@ export default function CertificatesEditor() {
         }
 
         .cert-editor-btn-danger {
-          background: rgba(186,35,35,0.06);
-          color: #8A1E1E;
-          border-color: rgba(186,35,35,0.16);
+          background: linear-gradient(135deg, #B42318 0%, #D92D20 100%);
+          color: #fff;
+          border-color: rgba(185,28,28,0.24);
         }
 
         .cert-editor-btn:disabled {

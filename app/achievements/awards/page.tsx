@@ -141,6 +141,23 @@ export default function AwardsPage() {
 
   return (
     <>
+      <style>
+    {`
+      .custom-scroll::-webkit-scrollbar {
+        height: 8px;
+      }
+      .custom-scroll::-webkit-scrollbar-track {
+        background: #1e3a8a;
+      }
+      .custom-scroll::-webkit-scrollbar-thumb {
+        background: #3b82f6;
+        border-radius: 6px;
+      }
+      .custom-scroll {
+        scrollbar-color: #3b82f6 #1e3a8a;
+      }
+    `}
+  </style>
       {/* ══════════════════════════════════
           HERO — Editorial typographic
       ══════════════════════════════════ */}
@@ -221,7 +238,7 @@ export default function AwardsPage() {
 
               <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)', background: contentSource === 'supabase' ? 'rgba(26,107,72,0.18)' : 'rgba(184,135,10,0.2)', color: contentSource === 'supabase' ? '#8EE0B5' : '#F7D080', fontSize: 11, fontWeight: 700 }}>
                 {contentSource === 'supabase' ? <Database size={12} /> : <CloudOff size={12} />}
-                {contentSource === 'supabase' ? 'Live from Supabase' : 'Fallback from Awarddata.ts'}
+                {contentSource === 'supabase' ? 'Live' : 'Backup'}
               </div>
             </motion.div>
 

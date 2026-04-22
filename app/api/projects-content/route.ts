@@ -39,11 +39,11 @@ const parseContent = (value: unknown): Partial<ProjectsContentRaw> | null => {
   return null
 }
 
-const readRemote = async (): Promise<Partial<ProjectsContentRaw>> => {
+const readRemote = async (): Promise<{ found: boolean; data: Partial<ProjectsContentRaw> }> => {
   const client = createSupabaseWriteClient() ?? createSupabaseReadClient()
   if (!client) {
     console.error('[projects] Supabase client is not configured. Falling back to static content.')
-    return {}
+    return { found: false, data: {} }
   }
 
   const { data, error } = await client
@@ -56,10 +56,11 @@ const readRemote = async (): Promise<Partial<ProjectsContentRaw>> => {
     if (error) {
       console.error('[projects] Failed reading content from Supabase:', error.message)
     }
-    return {}
+    return { found: false, data: {} }
   }
 
-  return parseContent((data as { content?: unknown }).content) || {}
+  const parsed = parseContent((data as { content?: unknown }).content) || {}
+  return { found: true, data: parsed }
 }
 
 const upsertContent = async (content: ProjectsContentRaw) => {
@@ -88,12 +89,14 @@ const upsertContent = async (content: ProjectsContentRaw) => {
 export async function GET() {
   try {
     const remote = await readRemote()
-    const hasRemote = Object.keys(remote).length > 0
+    const content = remote.found
+      ? normalizeProjectsContent(remote.data)
+      : STATIC_PROJECTS_CONTENT
 
     return NextResponse.json({
       ok: true,
-      source: hasRemote ? 'supabase' : 'backup',
-      content: normalizeProjectsContent(remote),
+      source: remote.found ? 'supabase' : 'backup',
+      content,
       supabase: getSupabaseStatus(),
     })
   } catch (error) {
@@ -121,7 +124,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, message: 'Section content is required.' }, { status: 400 })
     }
 
-    const current = normalizeProjectsContent(await readRemote())
+    const remote = await readRemote()
+    let current = normalizeProjectsContent(STATIC_PROJECTS_CONTENT)
+    if (remote.found) {
+      current = normalizeProjectsContent(remote.data)
+    }
+
     const next = normalizeProjectsContent({
       ...current,
       [body.sectionKey]: sectionValue,

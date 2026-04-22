@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
@@ -9,7 +9,45 @@ import {
   GraduationCap, Briefcase, ChevronDown,
   Clock, Globe, Linkedin, ArrowRight,
 } from 'lucide-react'
+import {
+  EMPTY_FORM,
+  validateForm,
+  labelStyle,
+  errorStyle,
+  getFieldStyle,
+  showAlert,
+  type FormState,
+  type Errors,
+} from '../Database/Contactdata'
+import {
+  STATIC_CONTACT_CONTENT,
+  normalizeContactContent,
+  type ContactContentRaw,
+  type ContactInfoIconKey,
+  type WelcomeTopicIconKey,
+} from '@/lib/contactContent'
 
+type ContactContentApiState = {
+  ok?: boolean
+  source?: 'supabase' | 'backup'
+  content?: Partial<ContactContentRaw>
+  message?: string
+}
+
+const CONTACT_INFO_ICONS: Record<ContactInfoIconKey, typeof Mail> = {
+  mail: Mail,
+  phone: Phone,
+  'map-pin': MapPin,
+  globe: Globe,
+}
+
+const WELCOME_TOPIC_ICONS: Record<WelcomeTopicIconKey, typeof FlaskConical> = {
+  flask: FlaskConical,
+  graduation: GraduationCap,
+  book: BookOpen,
+  briefcase: Briefcase,
+  linkedin: Linkedin,
+}
 
 const up = (delay = 0) => ({
   initial: { opacity: 0, y: 22 },
@@ -18,102 +56,58 @@ const up = (delay = 0) => ({
   transition: { duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] as any },
 })
 
-// ── Form field component ──────────────────────────────────
-const CATEGORIES = [
-  'Research Collaboration',
-  'Academic Partnership',
-  'Student Mentorship',
-  'Conference / Seminar Invitation',
-  'AI / ML Consultancy',
-  'Patent & IP Inquiry',
-  'Media / Interview Request',
-  'General Inquiry',
-]
-
-type FormState = {
-  name: string
-  email: string
-  phone: string
-  subject: string
-  category: string
-  message: string
-}
-
-type Errors = Partial<Record<keyof FormState, string>>
-
-const EMPTY: FormState = {
-  name: '', email: '', phone: '',
-  subject: '', category: '', message: '',
-}
-
-function validate(f: FormState): Errors {
-  const e: Errors = {}
-  if (!f.name.trim())         e.name    = 'Full name is required'
-  if (!f.email.trim())        e.email   = 'Email address is required'
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email))
-                              e.email   = 'Enter a valid email address'
-  if (!f.subject.trim())      e.subject = 'Subject is required'
-  if (!f.message.trim())      e.message = 'Message is required'
-  else if (f.message.trim().length < 20)
-                              e.message = 'Message must be at least 20 characters'
-  return e
-}
-
-// ── Input style helper ────────────────────────────────────
-const inputBase: React.CSSProperties = {
-  width: '100%',
-  padding: '11px 14px',
-  borderRadius: 8,
-  border: '1.5px solid rgba(15,23,42,0.12)',
-  background: '#fff',
-  fontSize: 14,
-  color: '#0F172A',
-  fontFamily: 'DM Sans, sans-serif',
-  outline: 'none',
-  transition: 'border-color 0.18s, box-shadow 0.18s',
-  boxSizing: 'border-box',
-}
-
 // ═══════════════════════════════════════════════════════════
 export default function ContactPage() {
-  const [form, setForm]       = useState<FormState>(EMPTY)
+  const [contactContent, setContactContent] = useState<ContactContentRaw>(STATIC_CONTACT_CONTENT)
+  const [form, setForm]       = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors]   = useState<Errors>({})
   const [loading, setLoading] = useState(false)
   const [focused, setFocused] = useState<string>('')
+  const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error' | null; text: string }>({
+    type: null,
+    text: '',
+  })
   const formRef               = useRef<HTMLFormElement>(null)
 
-  // Load SweetAlert2 dynamically (avoids SSR issues)
-  const showAlert = async (type: 'success' | 'error', title: string, text: string) => {
-    const Swal = (await import('sweetalert2')).default
-    await Swal.fire({
-      icon: type,
-      title,
-      text,
-      confirmButtonText: type === 'success' ? 'Great, thank you!' : 'OK',
-      confirmButtonColor: type === 'success' ? '#0D1F3C' : '#B8870A',
-      background: '#FFFFFF',
-      color: '#0F172A',
-      iconColor: type === 'success' ? '#1A6B48' : '#B8870A',
-      customClass: {
-        popup:   'swal-popup',
-        title:   'swal-title',
-        htmlContainer: 'swal-text',
-        confirmButton: 'swal-btn',
-      },
-      showClass: {
-        popup: 'animate__animated animate__fadeInDown animate__faster',
-      },
-      hideClass: {
-        popup: 'animate__animated animate__fadeOutUp animate__faster',
-      },
-    })
-  }
+  useEffect(() => {
+    let active = true
+
+    const loadContent = async () => {
+      try {
+        const response = await fetch('/api/contact-content', { cache: 'no-store' })
+        const payload = (await response.json()) as ContactContentApiState
+
+        if (!active) {
+          return
+        }
+
+        setContactContent(normalizeContactContent(payload.content || STATIC_CONTACT_CONTENT))
+      } catch {
+        if (!active) {
+          return
+        }
+
+        setContactContent(STATIC_CONTACT_CONTENT)
+      }
+    }
+
+    void loadContent()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
     setForm(prev => ({ ...prev, [name]: value }))
+
+    if (submitMessage.type) {
+      setSubmitMessage({ type: null, text: '' })
+    }
+
     if (errors[name as keyof FormState]) {
       setErrors(prev => ({ ...prev, [name]: undefined }))
     }
@@ -121,72 +115,49 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const errs = validate(form)
+    const errs = validateForm(form)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
-      // Scroll to first error
       const firstErr = formRef.current?.querySelector('[data-error="true"]') as HTMLElement
       firstErr?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setSubmitMessage({ type: 'error', text: 'Please fix the highlighted fields before sending.' })
       return
     }
 
     setLoading(true)
+    setSubmitMessage({ type: null, text: '' })
+
     try {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      const data = await res.json()
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
 
       if (res.ok) {
-        setForm(EMPTY)
+        setForm(EMPTY_FORM)
         setErrors({})
+        setSubmitMessage({ type: 'success', text: 'Your message has been sent successfully.' })
         await showAlert(
           'success',
           'Message Sent!',
-          "Thank you for reaching out. Dr. Takmare will respond within 1–2 business days. A confirmation has been sent to your email."
+          'Thank you for reaching out. Your inquiry has been received successfully. Dr. Takmare will respond within 1–2 business days.'
         )
       } else {
-        await showAlert('error', 'Submission Failed', data.error || 'Something went wrong. Please try again.')
+        const errorText = data.error || 'Something went wrong. Please try again.'
+        setSubmitMessage({ type: 'error', text: errorText })
+        await showAlert('error', 'Submission Failed', errorText)
       }
     } catch {
+      setSubmitMessage({ type: 'error', text: 'Could not connect to the server. Please try again.' })
       await showAlert('error', 'Network Error', 'Could not connect to the server. Please check your internet connection and try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  const fieldStyle = (name: string): React.CSSProperties => ({
-    ...inputBase,
-    borderColor: errors[name as keyof FormState]
-      ? '#DC2626'
-      : focused === name
-      ? '#0D1F3C'
-      : 'rgba(15,23,42,0.12)',
-    boxShadow: focused === name && !errors[name as keyof FormState]
-      ? '0 0 0 3px rgba(13,31,60,0.08)'
-      : 'none',
-  })
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: 12.5,
-    fontWeight: 600,
-    color: '#334155',
-    marginBottom: 7,
-    fontFamily: 'DM Sans, sans-serif',
-  }
-
-  const errorStyle: React.CSSProperties = {
-    fontSize: 11.5,
-    color: '#DC2626',
-    marginTop: 5,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-    fontFamily: 'DM Sans, sans-serif',
-  }
+  const fieldStyle = (name: string): React.CSSProperties => getFieldStyle(name, errors, focused)
 
   return (
     <>
@@ -205,14 +176,14 @@ export default function ContactPage() {
           <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
             <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold-3)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 22, height: 2, background: 'var(--gold-3)', borderRadius: 2, display: 'inline-block' }} />
-              Get In Touch
+              {contactContent.hero.eyebrow}
             </p>
             <h1 style={{ fontFamily: 'Playfair Display, serif', fontSize: 'clamp(34px, 5.5vw, 64px)', fontWeight: 800, color: '#F0F4F8', lineHeight: 1.08, letterSpacing: '-0.025em', marginBottom: 18, maxWidth: 640 }}>
-              Let's Start a{' '}
+              {contactContent.hero.title}{' '}
               <em style={{ color: 'var(--gold-3)', fontStyle: 'italic', fontWeight: 600 }}>Conversation</em>
             </h1>
             <p style={{ fontSize: 'clamp(14px, 1.4vw, 17px)', color: 'rgba(226,232,240,0.70)', lineHeight: 1.75, maxWidth: 560, fontWeight: 300 }}>
-              Whether you are a student, researcher, institution, or industry professional I am always open to meaningful conversations about AI research, academic collaboration, and education.
+              {contactContent.hero.description}
             </p>
           </motion.div>
         </div>
@@ -237,13 +208,10 @@ export default function ContactPage() {
                 <div style={{ padding: 'clamp(22px, 3vw, 32px)' }}>
                   <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold-3)', marginBottom: 16 }}>Contact Information</p>
 
-                  {[
-                    { I: Mail,    label: 'Email',    val: 'sachintakmare@gmail.com',    href: 'mailto:sachintakmare@gmail.com' },
-                    { I: Phone,   label: 'Phone',    val: '+91 9960843406',              href: 'tel:+919960843406' },
-                    { I: MapPin,  label: 'Location', val: 'Kolhapur, Maharashtra 416216', href: undefined },
-                    { I: Globe,   label: 'College',  val: 'D.Y. Patil College of Engg. & Tech., Kolhapur', href: undefined },
-                  ].map(({ I, label, val, href }, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 13, alignItems: 'flex-start', padding: '11px 0', borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                  {contactContent.contactInfo.map(({ iconKey, label, val, href }, i) => {
+                    const I = CONTACT_INFO_ICONS[iconKey] || Mail
+                    return (
+                    <div key={i} style={{ display: 'flex', gap: 13, alignItems: 'flex-start', padding: '11px 0', borderBottom: i < contactContent.contactInfo.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
                       <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(184,135,10,0.12)', border: '1px solid rgba(184,135,10,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <I size={14} style={{ color: 'var(--gold-3)' }} />
                       </div>
@@ -260,27 +228,24 @@ export default function ContactPage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
-             
               {/* Quick contact topics */}
               <div style={{ background: 'var(--off)', border: '1px solid var(--ink-line)', borderRadius: 12, padding: 'clamp(18px, 2.5vw, 24px)' }}>
                 <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--navy)', marginBottom: 14 }}>I welcome inquiries on:</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[
-                    { I: FlaskConical, t: 'Research Collaborations & Co-authorship' },
-                    { I: GraduationCap, t: 'Student Mentorship & M.E. Supervision' },
-                    { I: BookOpen, t: 'Conference & Seminar Invitations' },
-                    { I: Briefcase, t: 'AI / ML Consultancy & Training' },
-                    { I: Linkedin, t: 'Academic & Professional Networking' },
-                  ].map(({ I, t }, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                      <I size={13} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                      <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{t}</p>
-                    </div>
-                  ))}
+                  {contactContent.welcomeTopics.map(({ iconKey, title }, i) => {
+                    const I = WELCOME_TOPIC_ICONS[iconKey] || FlaskConical
+                    return (
+                      <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <I size={13} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                        <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{title}</p>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </motion.div>
@@ -389,7 +354,7 @@ export default function ContactPage() {
                           }}
                         >
                           <option value="" disabled>Select a category</option>
-                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          {contactContent.categories.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                         <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-4)', pointerEvents: 'none' }} />
                       </div>
@@ -444,10 +409,33 @@ export default function ContactPage() {
                     </div>
                   </div>
 
+                  {submitMessage.type ? (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      style={{
+                        marginBottom: 18,
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        color: submitMessage.type === 'success' ? '#14532D' : '#991B1B',
+                        background: submitMessage.type === 'success' ? '#ECFDF3' : '#FEF2F2',
+                        border:
+                          submitMessage.type === 'success'
+                            ? '1px solid rgba(20,83,45,0.25)'
+                            : '1px solid rgba(153,27,27,0.2)',
+                      }}
+                    >
+                      {submitMessage.text}
+                    </div>
+                  ) : null}
+
                   {/* Submit */}
                   <button
                     type="submit"
                     disabled={loading}
+                    aria-busy={loading}
                     style={{
                       width: '100%',
                       padding: '13px 24px',
@@ -486,7 +474,6 @@ export default function ContactPage() {
                   >
                     {loading ? (
                       <>
-                        {/* Spinner */}
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
                           <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
                           <path d="M12 2a10 10 0 0 1 10 10" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
@@ -503,7 +490,7 @@ export default function ContactPage() {
 
                   {/* Privacy note */}
                   <p style={{ fontSize: 11.5, color: 'var(--ink-4)', textAlign: 'center', marginTop: 14, lineHeight: 1.6 }}>
-                    Your information is kept private and used only to respond to your inquiry. A confirmation email will be sent to you automatically.
+                    Your information is kept private and used only to respond to your inquiry.
                   </p>
                 </form>
               </div>
@@ -512,7 +499,6 @@ export default function ContactPage() {
         </div>
       </section>
 
-     
       {/* ── CTA row ── */}
       <section style={{ background: 'var(--white)', padding: 'clamp(48px, 8vh, 80px) 0', borderTop: '1px solid var(--ink-line)', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, transparent, var(--gold), transparent)' }} />
@@ -525,16 +511,13 @@ export default function ContactPage() {
               Before reaching out, feel free to explore my research, teaching portfolio, and published patents.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-              <Link href="/research"     className="btn-navy" style={{ padding: '11px 22px', fontSize: 13.5 }}>Research Papers <ArrowRight size={14} /></Link>
-              <Link href="/about"        className="btn-out"  style={{ padding: '11px 22px', fontSize: 13.5 }}>About Me</Link>
-              <Link href="/patents"      className="btn-out"  style={{ padding: '11px 22px', fontSize: 13.5 }}>Patents & IP</Link>
-              <Link href="/teaching"     className="btn-out"  style={{ padding: '11px 22px', fontSize: 13.5 }}>Teaching</Link>
-            </div>
+              <Link href="/research" className="btn-navy" style={{ padding: '11px 22px', fontSize: 13.5 }}>Research Papers <ArrowRight size={14} /></Link>
+              <Link href="/about" className="btn-out" style={{ padding: '11px 22px', fontSize: 13.5 }}>About Me</Link>
+                        </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Spinner keyframes + SweetAlert custom styles */}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
 

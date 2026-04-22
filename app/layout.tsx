@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     default: 'Dr. Sachin Takmare',
     template: '%s | Dr. Sachin Takmare',
   },
+  icons: {
+    icon: "/profileicon.png",
+  },
   description:
     'Official academic portfolio of Dr. Sachin Balawant Takmare — Ph.D. (2024), Assistant Professor with 18+ years of UGC-approved teaching, AI/ML researcher, 2 patents, 15 international publications.',
   keywords: [

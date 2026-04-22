@@ -57,7 +57,21 @@ $$;
 
 comment on table public.home_content_sections is 'Section-level content for the public home page. Use the app backup file when a section is missing or Supabase is unavailable.';
 
+-- Initialize section rows with empty/default content
+insert into public.home_content_sections (section_key, content, updated_at)
+values 
+  ('projects', '{}'::jsonb, timezone('utc', now())),
+  ('teaching', '{}'::jsonb, timezone('utc', now()))
+on conflict (section_key) do nothing;
+
+-- Initialize storage buckets
 insert into storage.buckets (id, name, public)
-values ('home-profile-images', 'home-profile-images', true)
+values 
+  ('home-profile-images', 'home-profile-images', true),
+  ('research-patents-assets', 'research-patents-assets', true),
+  ('achievements-awards-assets', 'achievements-awards-assets', true),
+  ('achievements-certificates-assets', 'achievements-certificates-assets', true),
+  ('projects-assets', 'projects-assets', true),
+  ('teaching-assets', 'teaching-assets', true)
 on conflict (id) do update
 set public = excluded.public;
